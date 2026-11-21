@@ -1,0 +1,6 @@
+config SND_SOC_AW883XX_V16
+	tristate "Awinic AW883xx SmartPA v1.6 (PID 2049/2066/2183)"
+	depends on I2C
+	help
+	  Enable Awinic's v1.6 SmartPA driver, including the AW88399
+	  identified by chip ID 0x2183 on the X7 Pro.
