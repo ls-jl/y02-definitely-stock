@@ -25,3 +25,9 @@ python3 -m unittest discover -s tools/porting/tests -v
 
 原厂 Buildroot 系统上的 ADB 自启动属于另一类工具，保留在
 `tools/stock_adb/skip_login.sh`，不混入 Android SDK 补丁。
+
+## SDK 构建依赖
+
+`sdk_assets.py fetch` 从本私有仓库的 Release 分卷恢复工具链、预编译依赖和大型测试数据。
+格式和逐文件校验方法见 [assets/README.md](assets/README.md)。恢复需要 Python 3.12+、
+GitHub CLI 和 zstd。单元测试覆盖归档还原、符号链接、执行权限、路径边界与已有文件保护。

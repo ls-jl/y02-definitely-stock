@@ -41,16 +41,34 @@ def safe_name(name):
     return str(path)
 
 
+def matches(path, mode, oid):
+    if mode == "120000":
+        if not path.is_symlink():
+            return False
+    else:
+        if path.is_symlink() or not path.is_file():
+            return False
+        if bool(path.stat().st_mode & 0o111) != (mode == "100755"):
+            return False
+    return git_blob_id(path, mode) == oid
+
+
 def load_files():
     process = subprocess.Popen(["zstd", "-dc", str(ASSETS / "files.tsv.zst")],
                                stdout=subprocess.PIPE, text=True)
     files = {}
-    for line in process.stdout:
-        mode, oid, size, encoded = line.rstrip("\n").split("\t", 3)
-        name = safe_name(json.loads(encoded))
-        files[name] = (mode, oid, int(size))
-    if process.wait():
-        raise RuntimeError("Cannot read SDK dependency file inventory")
+    try:
+        with process.stdout:
+            for line in process.stdout:
+                mode, oid, size, encoded = line.rstrip("\n").split("\t", 3)
+                name = safe_name(json.loads(encoded))
+                files[name] = (mode, oid, int(size))
+        if process.wait():
+            raise RuntimeError("Cannot read SDK dependency file inventory")
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
     return files
 
 
@@ -64,14 +82,22 @@ def fetch():
     files = load_files()
     cache = ROOT / ".git/sdk-assets"
     cache.mkdir(parents=True, exist_ok=True)
-    needed = sum(item["bytes"] for item in manifest["archives"]) + manifest["logical_bytes"]
-    if shutil.disk_usage(ROOT).free < needed:
-        raise SystemExit(f"Need approximately {needed / 2**30:.1f} GiB free for download and extraction")
-    for name, (mode, oid, _) in files.items():
+    missing_bytes, present = 0, 0
+    for name, (mode, oid, size) in files.items():
         target = ROOT / name
         if target.exists() or target.is_symlink():
-            if git_blob_id(target, mode) != oid:
+            if not matches(target, mode, oid):
                 raise SystemExit(f"Refusing to replace an existing different file: {name}")
+            present += 1
+        else:
+            missing_bytes += size
+    if present == len(files):
+        print(f"SDK dependencies already ready: {present} files verified")
+        return
+    needed = missing_bytes + sum(item["bytes"] for item in manifest["archives"]
+                                 if not (cache / safe_name(item["name"])).exists())
+    if shutil.disk_usage(ROOT).free < needed:
+        raise SystemExit(f"Need approximately {needed / 2**30:.1f} GiB free for download and extraction")
     archives = []
     for item in manifest["archives"]:
         filename = safe_name(item["name"])
@@ -106,7 +132,7 @@ def fetch():
                 target = ROOT / name
                 if not target.exists() and not target.is_symlink():
                     archive.extract(member, path=ROOT, filter="data")
-                if git_blob_id(target, mode) != oid:
+                if not matches(target, mode, oid):
                     raise ValueError(f"Restored dependency content mismatch: {name}")
                 count += 1
                 if count % 10000 == 0:
@@ -116,6 +142,7 @@ def fetch():
         if count != len(files):
             raise ValueError(f"Dependency coverage mismatch: {count} != {len(files)}")
     finally:
+        decoder.stdout.close()
         for process in (decoder, source):
             if process.poll() is None:
                 process.kill()

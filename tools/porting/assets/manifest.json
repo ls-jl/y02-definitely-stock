@@ -1,0 +1,144 @@
+{
+  "repository": "ls-jl/y02-definitely-stock",
+  "release": "sdk-dependencies-20261121",
+  "source_tree": "8ebc2d72225ea10e0363f826e7d32d64dd3b6420",
+  "sdk_files": 1047381,
+  "source_files": 804253,
+  "source_bytes": 22185522194,
+  "external_files": 243127,
+  "logical_bytes": 59886249749,
+  "archives": [
+    {
+      "name": "android13-sdk-deps.tar.zst.part000",
+      "bytes": 1073741824,
+      "sha256": "d83c67c573dfe29220eceb5ca73841fd42c66ed6d935045fae9105f9ecaf4efc",
+      "asset_id": 774632934
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part001",
+      "bytes": 1073741824,
+      "sha256": "ae8b362d564610a5ad6f2540430b90e209c9d66c29b3049bbc38c7e529542cee",
+      "asset_id": 774633899
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part002",
+      "bytes": 1073741824,
+      "sha256": "bf0e9e5b9e454c7aef08383bee0dd344d9c008a9d0b5a44f73a8fc058732623d",
+      "asset_id": 774634492
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part003",
+      "bytes": 1073741824,
+      "sha256": "20ada7f95bf6e569513d885951ae21024a3a4c54d05685f25d8f27f0fbde1e70",
+      "asset_id": 774656260
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part004",
+      "bytes": 1073741824,
+      "sha256": "11553faf5e2a490b6d39d83bc2e37b01603d950ce76b86e8e67f98f2a03d1ec4",
+      "asset_id": 774657664
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part005",
+      "bytes": 1073741824,
+      "sha256": "e3b1b215ec766589a9bbc34fa9fd9207cf8815b726cf3c87e113512abae1ec85",
+      "asset_id": 774658024
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part006",
+      "bytes": 1073741824,
+      "sha256": "418dc0d178496ae09513fd97340b5350ec68e2fc036cc561e8c89c56d6811e91",
+      "asset_id": 774682057
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part007",
+      "bytes": 1073741824,
+      "sha256": "fc7dd8411702f0e56939e335937ab65e5b05b8106826a289a08213c0923a8941",
+      "asset_id": 774685087
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part008",
+      "bytes": 1073741824,
+      "sha256": "97d5c934622c3fc1a5a78239fb6b17d13517f343a468812152fd1259c34c0942",
+      "asset_id": 774685389
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part009",
+      "bytes": 1073741824,
+      "sha256": "9bd96be86b7199f0087a4e7c40beb89b4f38f6e534059e893b3e5376c93581d3",
+      "asset_id": 774704566
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part010",
+      "bytes": 1073741824,
+      "sha256": "fbc93e236c68c2272b3f56da29f46b5298294fe863cf394da7950fd471ba97f5",
+      "asset_id": 774710787
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part011",
+      "bytes": 1073741824,
+      "sha256": "1fac8226fff62b87b32dd7b8e4c9b1dc15773639af1bfaf8b73314a81752d3d5",
+      "asset_id": 774711048
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part012",
+      "bytes": 1073741824,
+      "sha256": "ea614eb615b9f097c18502b41090f4695564ac0a6e84cca8ae4c22dc4e4b2fd4",
+      "asset_id": 774723094
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part013",
+      "bytes": 1073741824,
+      "sha256": "0527f1a5d4d3d0bc693712e30ef338857bf784e5127cc11b13cbf0e45972997e",
+      "asset_id": 774729826
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part014",
+      "bytes": 1073741824,
+      "sha256": "901a06d50c3a3d88342738755760fc3a412fbd95c7d48deffb4e024608c741f7",
+      "asset_id": 774730598
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part015",
+      "bytes": 1073741824,
+      "sha256": "41e262df764546c92112c23b463e4c8ff205b41f34ab1ad6c652a126fa9105d0",
+      "asset_id": 774735704
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part016",
+      "bytes": 1073741824,
+      "sha256": "ebafee4436dce42e1096a0602351531755c9932e55a432278abc50b8d8b75310",
+      "asset_id": 774748540
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part017",
+      "bytes": 1073741824,
+      "sha256": "f1eb2f6c5fd5582163dcedbe9c5bcc17cc4be8a5af95009a913a186211912208",
+      "asset_id": 774749037
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part018",
+      "bytes": 1073741824,
+      "sha256": "b47814cdbfdc5444eb2b6ae23fe172f10fda568ae3c006a51da8a8209e7a1735",
+      "asset_id": 774750443
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part019",
+      "bytes": 1073741824,
+      "sha256": "76fc4a7c232bafee964d0dc2bba6b90bdd5e6366d17c581fa47d98aa37b89e2e",
+      "asset_id": 774764640
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part020",
+      "bytes": 1073741824,
+      "sha256": "bab2ea593ddbf401059848cd9fe1723d92a8df8d2d061acad1c9b97fc28f4637",
+      "asset_id": 774764862
+    },
+    {
+      "name": "android13-sdk-deps.tar.zst.part021",
+      "bytes": 594955842,
+      "sha256": "165033eadb9480a8f551b8b33d7e29aff5b92c39d5b4ebd4e9b8e6ac6bf9d5b8",
+      "asset_id": 774765681
+    }
+  ]
+}
