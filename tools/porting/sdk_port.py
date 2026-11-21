@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export and verify the X7 Pro Android port without container integration."""
+"""Export and verify the X7 Pro Android SDK port."""
 
 import argparse
 from contextlib import contextmanager
@@ -14,7 +14,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 SDK = ROOT / "android13_sdk/RK3562_Android13.0_SDK"
-OUTPUT = ROOT / "patches/android13/non-chroot"
+OUTPUT = ROOT / "patches/android13/y02"
 BASE = "2739aad12478b269998fbac4ea39f396f4695f9f"
 SNAPSHOT = "1a2da0cd230e447abd85f1eaaa7e0b5e50fda036"
 LATER = "2f8600284e4f869435f1b3689fb79ab9f55a8aee"
@@ -273,7 +273,7 @@ def check(git, output):
     manifest = json.loads((output / "manifest.json").read_text())
     if (manifest["format"], manifest["base_commit"], manifest["snapshot_commit"],
             manifest["later_history_commit"]) != (1, BASE, SNAPSHOT, LATER):
-        raise ValueError("Bundle references do not match the recorded non-chroot scope")
+        raise ValueError("Bundle references do not match the recorded SDK port scope")
     snapshot, extra = manifest["snapshot_patches"], manifest["supplement_patches"]
     for phase, items in (("final12", snapshot), ("supplement", extra)):
         expected_series = "".join(Path(p["file"]).name + "\n" for p in items)

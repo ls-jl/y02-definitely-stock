@@ -1,10 +1,10 @@
 # X7 Pro 相对原始 SDK 的硬件相关更改路径
 
 可直接应用和校验的代码已整理到
-[非 chroot Android 补丁集](patches/android13/non-chroot/README.md)。
+[Android 移植补丁集](patches/android13/y02/README.md)。
 其中 `final12/` 完整覆盖原始 SDK 到下述目标的 398 个文件，`supplement/`
 另外保存后续可独立使用的硬件、内存和显示修复；逐文件归属以
-[PATHS.tsv](patches/android13/non-chroot/PATHS.tsv) 为准。
+[PATHS.tsv](patches/android13/y02/PATHS.tsv) 为准。
 
 ## 范围
 
@@ -447,5 +447,5 @@ M  vendor/rockchip/hardware/interfaces/rockit/hw/hidl/services/seccomp_policy/ro
 
 ```bash
 "$GIT" -C "$SDK" diff --name-status 2739aad12478..ls-jl
-python3 tools/porting/non_chroot.py check --sdk /path/to/RK3562_Android13.0_SDK
+python3 tools/porting/sdk_port.py check --sdk /path/to/original-sdk-git
 ```

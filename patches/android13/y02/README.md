@@ -1,12 +1,11 @@
-# X7 Pro Android 13 Go：非 chroot 代码集
+# X7 Pro Android 13 Go 移植补丁
 
-这是一套可重建、可校验的代码补丁。目录以功能模块组织，没有改动 SDK 当前的
-`chroot-container` 工作树，也没有改写原有分支。
+这是一套按功能模块组织、可重建并可校验的 SDK 移植补丁，保留代码导入前的适配来源。
 
 ## 固定基线
 
 - 原始 Android SDK：`2739aad12478b269998fbac4ea39f396f4695f9f`。
-- 非 chroot final12：`1a2da0cd230e447abd85f1eaaa7e0b5e50fda036`（`ls-jl`）。
+- final12：`1a2da0cd230e447abd85f1eaaa7e0b5e50fda036`（`ls-jl`）。
 - final12 完整源码树：`173736490a35b8d299094860e9d509dbf37da2eb`。
 - 后续修复的来源上限：`2f8600284e4f869435f1b3689fb79ab9f55a8aee`。
 - 加入精选修复后的源码树：`8ebc2d72225ea10e0363f826e7d32d64dd3b6420`。
@@ -57,7 +56,7 @@ Home+Power 切换、HWC/SurfaceFlinger 交接、容器 SELinux 和通知桥。
 从本仓库根目录运行，另行指定含固定提交的本地 SDK：
 
 ```bash
-python3 tools/porting/non_chroot.py check --sdk /path/to/RK3562_Android13.0_SDK
+python3 tools/porting/sdk_port.py check --sdk /path/to/original-sdk-git
 python3 -m unittest discover -s tools/porting/tests -v
 ```
 
@@ -68,7 +67,7 @@ python3 -m unittest discover -s tools/porting/tests -v
 要在另一个**干净、HEAD 为上述原始 SDK 提交**的工作目录中应用完整代码集：
 
 ```bash
-PATCH_DIR=/absolute/path/to/y02-definitely-stock/patches/android13/non-chroot
+PATCH_DIR=/absolute/path/to/y02-definitely-stock/patches/android13/y02
 while IFS= read -r patch; do
     git apply --index --binary "$PATCH_DIR/$patch" || break
 done < "$PATCH_DIR/series"

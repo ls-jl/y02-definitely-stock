@@ -1,0 +1,11 @@
+{
+  "repository": "ls-jl/y02-definitely-stock",
+  "release": "sdk-dependencies-20261121",
+  "source_tree": "8ebc2d72225ea10e0363f826e7d32d64dd3b6420",
+  "sdk_files": 1047381,
+  "source_files": 804253,
+  "source_bytes": 22185522194,
+  "external_files": 243127,
+  "logical_bytes": 59886249749,
+  "batches": 29
+}

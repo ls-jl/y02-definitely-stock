@@ -6,8 +6,8 @@ import tempfile
 import unittest
 
 
-MODULE = Path(__file__).resolve().parents[1] / "non_chroot.py"
-SPEC = importlib.util.spec_from_file_location("non_chroot", MODULE)
+MODULE = Path(__file__).resolve().parents[1] / "sdk_port.py"
+SPEC = importlib.util.spec_from_file_location("sdk_port", MODULE)
 port = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(port)
 

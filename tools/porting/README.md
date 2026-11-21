@@ -1,12 +1,12 @@
-# 非 chroot 代码整理工具
+# Android SDK 移植工具
 
-`non_chroot.py` 从 SDK 的固定提交导出模块补丁，避免把当前工作分支的容器代码一起拷走。
+`sdk_port.py` 从 SDK 的固定提交导出并验证模块补丁。
 默认 SDK 路径为 `android13_sdk/RK3562_Android13.0_SDK`，默认输出为
-`patches/android13/non-chroot/`。SDK 不随本仓库发布；从仓库根目录执行时用 `--sdk` 指定：
+`patches/android13/y02/`。重建历史补丁需要含原始提交的 SDK Git 仓库，用 `--sdk` 指定：
 
 ```bash
-python3 tools/porting/non_chroot.py export --sdk /path/to/RK3562_Android13.0_SDK
-python3 tools/porting/non_chroot.py check --sdk /path/to/RK3562_Android13.0_SDK
+python3 tools/porting/sdk_port.py export --sdk /path/to/original-sdk-git
+python3 tools/porting/sdk_port.py check --sdk /path/to/original-sdk-git
 python3 -m unittest discover -s tools/porting/tests -v
 ```
 
