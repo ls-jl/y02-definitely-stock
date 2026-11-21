@@ -1,0 +1,165 @@
+diff --git a/frameworks/av/services/mediacodec/seccomp_policy/mediacodec-arm.policy b/frameworks/av/services/mediacodec/seccomp_policy/mediacodec-arm.policy
+index b4a9ff6249b4d3f010323d036cb4ad312c52dcfa..8cc507dcc65e33dc43c95a34c5d8d130aabe8918 100644
+--- a/frameworks/av/services/mediacodec/seccomp_policy/mediacodec-arm.policy
++++ b/frameworks/av/services/mediacodec/seccomp_policy/mediacodec-arm.policy
+@@ -56,8 +56,3 @@ sched_setscheduler: 1
+ fstatat64: 1
+ ugetrlimit: 1
+ getdents64: 1
+-getrandom: 1
+-
+-@include /system/etc/seccomp_policy/crash_dump.arm.policy
+-
+-@include /system/etc/seccomp_policy/code_coverage.arm.policy
+diff --git a/frameworks/av/services/mediacodec/seccomp_policy/mediacodec-arm64.policy b/frameworks/av/services/mediacodec/seccomp_policy/mediacodec-arm64.policy
+index b4a9ff6249b4d3f010323d036cb4ad312c52dcfa..8cc507dcc65e33dc43c95a34c5d8d130aabe8918 100644
+--- a/frameworks/av/services/mediacodec/seccomp_policy/mediacodec-arm64.policy
++++ b/frameworks/av/services/mediacodec/seccomp_policy/mediacodec-arm64.policy
+@@ -56,8 +56,3 @@ sched_setscheduler: 1
+ fstatat64: 1
+ ugetrlimit: 1
+ getdents64: 1
+-getrandom: 1
+-
+-@include /system/etc/seccomp_policy/crash_dump.arm.policy
+-
+-@include /system/etc/seccomp_policy/code_coverage.arm.policy
+diff --git a/frameworks/base/services/core/java/com/android/server/PersistentDataBlockService.java b/frameworks/base/services/core/java/com/android/server/PersistentDataBlockService.java
+index 06c11fa4a20cb13180f0331a3c193efbe4e0b286..300354f6475e52af628f3c940cbd9c0ca23b7ce8 100644
+--- a/frameworks/base/services/core/java/com/android/server/PersistentDataBlockService.java
++++ b/frameworks/base/services/core/java/com/android/server/PersistentDataBlockService.java
+@@ -755,6 +755,11 @@ public class PersistentDataBlockService extends SystemService {
+         }
+ 
+         private byte[] readInternal(long offset, int maxLength) {
++            File dataBlockFile = new File(mDataBlockFile);
++            if (!dataBlockFile.exists()) {
++                Slog.w(TAG, "persistent partition not available: " + mDataBlockFile);
++                return null;
++            }
+             if (!enforceChecksumValidity()) {
+                 throw new IllegalStateException("invalid checksum");
+             }
+@@ -762,7 +767,7 @@ public class PersistentDataBlockService extends SystemService {
+             DataInputStream inputStream;
+             try {
+                 inputStream = new DataInputStream(
+-                        new FileInputStream(new File(mDataBlockFile)));
++                        new FileInputStream(dataBlockFile));
+             } catch (FileNotFoundException e) {
+                 throw new IllegalStateException("persistent partition not available");
+             }
+diff --git a/frameworks/base/services/core/java/com/android/server/wm/ActivityTaskManagerService.java b/frameworks/base/services/core/java/com/android/server/wm/ActivityTaskManagerService.java
+index 863bf94b13c1b7afbaa697577047be900d3d3537..a36b3bd45e693661926629c5897b5e7d5903da62 100644
+--- a/frameworks/base/services/core/java/com/android/server/wm/ActivityTaskManagerService.java
++++ b/frameworks/base/services/core/java/com/android/server/wm/ActivityTaskManagerService.java
+@@ -5852,7 +5852,9 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
+                 } catch (RemoteException e) {
+                 }
+ 
+-                if (!Build.isBuildConsistent()) {
++                if (!Build.isBuildConsistent()
++                        && !SystemProperties.getBoolean(
++                                "ro.x7pro.allow_legacy_kernel_fcm", false)) {
+                     Slog.e(TAG, "Build fingerprint is not consistent, warning user");
+                     mUiHandler.post(() -> {
+                         if (mShowDialogs) {
+diff --git a/packages/modules/adb/daemon/usb_ffs.cpp b/packages/modules/adb/daemon/usb_ffs.cpp
+index e538ca8855e97d49d96b0d8179b559ccb677e45a..11f1c642bc6a9e30b02a135ac2139c26d39b6a35 100644
+--- a/packages/modules/adb/daemon/usb_ffs.cpp
++++ b/packages/modules/adb/daemon/usb_ffs.cpp
+@@ -255,6 +255,16 @@ bool open_functionfs(android::base::unique_fd* out_control, android::base::uniqu
+     struct desc_v1 v1_descriptor = {};
+     struct desc_v2 v2_descriptor = {};
+ 
++    // RK3562's vendor 5.10 FunctionFS path accepts the V2 descriptor block,
++    // but fails control enumeration when its SS/MS OS descriptors are active.
++    // Prefer the FS/HS-only V1 block used by the stock dictionary-pen adbd.
++    v1_descriptor.header.magic = cpu_to_le32(FUNCTIONFS_DESCRIPTORS_MAGIC);
++    v1_descriptor.header.length = cpu_to_le32(sizeof(v1_descriptor));
++    v1_descriptor.header.fs_count = 3;
++    v1_descriptor.header.hs_count = 3;
++    v1_descriptor.fs_descs = fs_descriptors;
++    v1_descriptor.hs_descs = hs_descriptors;
++
+     v2_descriptor.header.magic = cpu_to_le32(FUNCTIONFS_DESCRIPTORS_MAGIC_V2);
+     v2_descriptor.header.length = cpu_to_le32(sizeof(v2_descriptor));
+     v2_descriptor.header.flags = FUNCTIONFS_HAS_FS_DESC | FUNCTIONFS_HAS_HS_DESC |
+@@ -279,16 +289,10 @@ bool open_functionfs(android::base::unique_fd* out_control, android::base::uniqu
+             return false;
+         }
+ 
+-        if (adb_write(control.get(), &v2_descriptor, sizeof(v2_descriptor)) < 0) {
+-            D("[ %s: Switching to V1_descriptor format errno=%s ]", USB_FFS_ADB_EP0,
++        if (adb_write(control.get(), &v1_descriptor, sizeof(v1_descriptor)) < 0) {
++            D("[ %s: Switching to V2_descriptor format errno=%s ]", USB_FFS_ADB_EP0,
+               strerror(errno));
+-            v1_descriptor.header.magic = cpu_to_le32(FUNCTIONFS_DESCRIPTORS_MAGIC);
+-            v1_descriptor.header.length = cpu_to_le32(sizeof(v1_descriptor));
+-            v1_descriptor.header.fs_count = 3;
+-            v1_descriptor.header.hs_count = 3;
+-            v1_descriptor.fs_descs = fs_descriptors;
+-            v1_descriptor.hs_descs = hs_descriptors;
+-            if (adb_write(control.get(), &v1_descriptor, sizeof(v1_descriptor)) < 0) {
++            if (adb_write(control.get(), &v2_descriptor, sizeof(v2_descriptor)) < 0) {
+                 PLOG(ERROR) << "failed to write USB descriptors";
+                 return false;
+             }
+diff --git a/system/core/fs_mgr/fs_mgr_slotselect.cpp b/system/core/fs_mgr/fs_mgr_slotselect.cpp
+index 09c1b7e20e97977137462ef916fa4b547cff917a..c4fc341baa93e8bf7a49834456c68a81498e8315 100644
+--- a/system/core/fs_mgr/fs_mgr_slotselect.cpp
++++ b/system/core/fs_mgr/fs_mgr_slotselect.cpp
+@@ -18,6 +18,8 @@
+ 
+ #include <string>
+ 
++#include <android-base/file.h>
++
+ #include "fs_mgr.h"
+ #include "fs_mgr_priv.h"
+ 
+@@ -48,7 +50,25 @@ std::string fs_mgr_get_other_slot_suffix() {
+ std::string fs_mgr_get_slot_suffix() {
+     std::string ab_suffix;
+ 
+-    fs_mgr_get_boot_config("slot_suffix", &ab_suffix);
++    if (fs_mgr_get_boot_config("slot_suffix", &ab_suffix) &&
++        (ab_suffix == "_a" || ab_suffix == "_b")) {
++        return ab_suffix;
++    }
++
++    // The stock X7 Pro boot_fit path publishes the selected AVB slot with
++    // Rockchip's legacy spelling instead of androidboot.slot_suffix. Keep the
++    // fallback local to fs_mgr so standard Android bootloaders remain first.
++    std::string cmdline;
++    if (android::base::ReadFileToString("/proc/cmdline", &cmdline)) {
++        for (const auto& [key, value] : fs_mgr_parse_cmdline(cmdline)) {
++            if (key == "android_slotsufix" && (value == "_a" || value == "_b")) {
++                LWARNING << "using legacy Rockchip slot suffix " << value;
++                return value;
++            }
++        }
++    }
++
++    ab_suffix.clear();
+     return ab_suffix;
+ }
+ 
+diff --git a/vendor/rockchip/hardware/interfaces/rockit/hw/hidl/services/seccomp_policy/rockit.vendor.base-arm.policy b/vendor/rockchip/hardware/interfaces/rockit/hw/hidl/services/seccomp_policy/rockit.vendor.base-arm.policy
+index 84d3eac7f5d1afe3ae5cb33eb76f20c1f5aa6e22..d281bfb21b92204affc6ba47dec9ec4cd904f15b 100644
+--- a/vendor/rockchip/hardware/interfaces/rockit/hw/hidl/services/seccomp_policy/rockit.vendor.base-arm.policy
++++ b/vendor/rockchip/hardware/interfaces/rockit/hw/hidl/services/seccomp_policy/rockit.vendor.base-arm.policy
+@@ -67,7 +67,6 @@ sched_setscheduler: 1
+ fstatat64: 1
+ ugetrlimit: 1
+ getdents64: 1
+-getrandom: 1
+ 
+ # Required by FFmpeg getaddrinfo
+ getattr: 1
+@@ -79,5 +78,3 @@ name_bind: 1
+ connect: 1
+ search: 1
+ sysinfo: 1
+-@include /system/etc/seccomp_policy/crash_dump.arm.policy
+-

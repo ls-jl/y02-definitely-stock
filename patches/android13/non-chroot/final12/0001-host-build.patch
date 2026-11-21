@@ -1,0 +1,146 @@
+diff --git a/AGENTS.md b/AGENTS.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..470dde67d4c082e6e1cf45deed2136a9eb7fb1c5
+--- /dev/null
++++ b/AGENTS.md
+@@ -0,0 +1,65 @@
++# Repository Guidelines
++
++## Project Structure & Module Organization
++
++This is a Rockchip Android 13/AOSP tree. Android framework and application code
++lives under `frameworks/`, `packages/`, `system/`, and `hardware/`. Rockchip
++board configuration is under `device/rockchip/`; X7 Pro work belongs in
++`device/rockchip/rk3562/rk3562_x7pro_go/`. The vendor kernel is in
++`kernel-5.10/`, with the X7 Pro DTS at
++`arch/arm64/boot/dts/rockchip/rk3562-y02-v10.dts` and its config fragment at
++`kernel/configs/x7pro.config`. Generated Android files go to `out/`; the current
++out-of-tree kernel build is in `../kernel_out_x7pro/`. Device dumps and reference
++sources under `../../device_dump_*` and `../../reference_sources/` are inputs,
++not repository source.
++
++## Build, Test, and Development Commands
++
++Run commands from the repository root:
++
++```bash
++source build/envsetup.sh
++export PATH="$PWD/tools/x7pro-host:$PATH"
++lunch rk3562_x7pro_go-userdebug
++./build.sh -C -J16          # kernel with the SDK Clang toolchain
++./build.sh -A -J16          # Android userspace
++./build.sh -C -A -p -J16    # kernel, Android, and packaged images
++m <module>                  # rebuild one Android module
++atest <test-name>           # run a supported host/device test
++```
++
++Before Android builds, ensure `build.sh` uses
++`prebuilts/jdk/jdk11/linux-x86`; do not rely on a host Java installation.
++After moving the tree, regenerate stale output directories rather than editing
++generated absolute paths.
++
++## Coding Style & Naming Conventions
++
++Follow the nearest subsystem style. Use four spaces for Java/Kotlin and Android
++make/config files; kernel C and DTS follow Linux kernel tab conventions. Keep
++product names lowercase with underscores (`rk3562_x7pro_go`) and DTS names
++lowercase with hyphens (`rk3562-y02-v10.dts`). Run the subsystem's existing
++`clang-format`, lint, or checkpatch tooling when present; avoid formatting
++unrelated code.
++
++## Testing Guidelines
++
++At minimum, verify `lunch` resolves, the kernel builds, `kernelrelease` is
++`5.10.160`, and module vermagic is `5.10.160 SMP mod_unload aarch64`. Compare the
++built DTB byte-for-byte with the captured device DTB. For framework changes,
++run focused `atest` targets and report the exact command and result. Run
++`../../tools/verify_kernel_delta.py` after changing the kernel delta set.
++
++## Commit & Pull Request Guidelines
++
++History contains only an initial import, so use concise imperative subjects with
++a scope, for example `kernel: add X7 Pro module ABI config`. Keep generated
++outputs, firmware dumps, keys, and reference archives out of commits. PRs should
++describe hardware impact, list tested build targets, include logs or hashes, and
++call out untested device behavior.
++
++## Safety & Agent Instructions
++
++Do not add remotes, push changes, flash partitions, or alter device data unless
++explicitly requested. Preserve local user changes and keep reference-source
++comparisons separate from production patches.
+diff --git a/build.sh b/build.sh
+index c0332dc4638bc4c1374959ac9176865bae15265e..a526dcc8b24bb3e652a33b0d65072ff1b7853937 100755
+--- a/build.sh
++++ b/build.sh
+@@ -18,6 +18,7 @@ usage()
+ }
+ 
+ source build/envsetup.sh >/dev/null
++export PATH=$ANDROID_BUILD_TOP/tools/x7pro-host:$PATH
+ BUILD_UBOOT=false
+ BUILD_KERNEL_WITH_CLANG=false
+ BUILD_KERNEL=false
+@@ -89,7 +90,9 @@ TARGET_PRODUCT=`get_build_var TARGET_PRODUCT`
+ TARGET_BOARD_PLATFORM=`get_build_var TARGET_BOARD_PLATFORM`
+ 
+ #set jdk version
+-export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
++# Use the in-tree JDK 11; the previously hardcoded
++# /usr/lib/jvm/java-8-openjdk-amd64 does not exist on this host.
++export JAVA_HOME=$ANDROID_BUILD_TOP/prebuilts/jdk/jdk11/linux-x86
+ export PATH=$JAVA_HOME/bin:$PATH
+ export PATH=$ANDROID_BUILD_TOP/prebuilts/clang/host/linux-x86/clang-r450784d/bin:$PATH
+ export CLASSPATH=.:$JAVA_HOME/lib:$JAVA_HOME/lib/tools.jar
+@@ -146,6 +149,9 @@ else
+     ADDON_ARGS="CC=clang LD=ld.lld"
+ fi
+ fi
++if [ "$TARGET_PRODUCT" = "rk3562_x7pro_go" ] ; then
++    ADDON_ARGS="$ADDON_ARGS LOCALVERSION="
++fi
+ # build kernel
+ if [ "$BUILD_KERNEL" = true ] ; then
+ echo "Start build kernel"
+diff --git a/javaenv.sh b/javaenv.sh
+index 8b96c75da5d4fcf93247e45a4c371a15b290b923..87d5b056f96480e6601bca78c813859a3812c792 100644
+--- a/javaenv.sh
++++ b/javaenv.sh
+@@ -1,6 +1,8 @@
+ #!/bin/sh
+ 
+-export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
++# Use the in-tree JDK 11; /usr/lib/jvm/java-8-openjdk-amd64 does not exist
++# on this host.
++export JAVA_HOME=$(cd "$(dirname "$0")" && pwd)/prebuilts/jdk/jdk11/linux-x86
+ export CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+ 
+-export PATH=$JAVA_HOME/bin:$PATH
++export PATH=$(cd "$(dirname "$0")" && pwd)/tools/x7pro-host:$JAVA_HOME/bin:$PATH
+diff --git a/rkbin/.gitignore b/rkbin/.gitignore
+index ac63dc3c6f1039af67037175c922d6d4e8217de6..43378dab938504f18f659dc7de67549ef0f3a5e1 100644
+--- a/rkbin/.gitignore
++++ b/rkbin/.gitignore
+@@ -1,4 +1,5 @@
+ !*.bin
++rk3562_spl_loader_v1.04.103.bin
+ FlashHead.bin
+ UsbHead.bin
+ .diff*
+diff --git a/rkbin/tools/config.ini b/rkbin/tools/config.ini
+deleted file mode 100644
+index ea1eb033c05cfa1894f7e3fd298498f90825bc01..0000000000000000000000000000000000000000
+--- a/rkbin/tools/config.ini
++++ /dev/null
+@@ -1,11 +0,0 @@
+-firmware=
+-loader=
+-parameter=
+-misc=
+-boot=
+-kernel=
+-system=
+-recovery=
+-rockusb_id=
+-msc_id=
+-rb_check_off=true

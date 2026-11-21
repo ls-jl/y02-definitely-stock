@@ -1,0 +1,331 @@
+diff --git a/packages/apps/Camera2/src/com/android/camera/CameraActivity.java b/packages/apps/Camera2/src/com/android/camera/CameraActivity.java
+index c4d19205031ac536be1d0601ccf553d65769cb55..1578ae4e18591103467f833647fd0a8d19a78594 100644
+--- a/packages/apps/Camera2/src/com/android/camera/CameraActivity.java
++++ b/packages/apps/Camera2/src/com/android/camera/CameraActivity.java
+@@ -1970,103 +1970,6 @@ public class CameraActivity extends QuickActivity
+         win.setAttributes(winParams);
+     }
+ 
+-    private void setMaxScreenBright() {
+-        Window win = getWindow();
+-        WindowManager.LayoutParams winParams = win.getAttributes();
+-        Log.i(TAG, "screenBrightness = " + winParams.screenBrightness);
+-        winParams.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL;
+-        win.setAttributes(winParams);
+-    }
+-
+-    private int mOrignalScreenBrightMode = -1;
+-    private int mOrignalScreenBrightness = -1;
+-    private void setScreenBrightAdjust() {
+-        mOrignalScreenBrightMode = getScreenMode();
+-        mOrignalScreenBrightness = getScreenBrightness();
+-        Log.i(TAG, "mOrignalScreenBrightMode = " + mOrignalScreenBrightMode
+-                + ",mOrignalScreenBrightness = " + mOrignalScreenBrightness);
+-        if (mOrignalScreenBrightMode == Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC)
+-            setScreenMode(Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL);
+-        if (mOrignalScreenBrightness < ((int) (255 * 0.9f)))
+-            saveScreenBrightness((int) (255 * 0.9f));
+-    }
+-
+-    private Runnable mScreenBrightAdjust = new Runnable() {
+-        
+-        @Override
+-        public void run() {
+-            // TODO Auto-generated method stub
+-            setScreenBrightAdjust();
+-        }
+-    };
+-
+-    private void restoreScreenBright() {
+-        mMainHandler.removeCallbacks(mScreenBrightAdjust);
+-        setScreenMode(mOrignalScreenBrightMode);
+-        saveScreenBrightness(mOrignalScreenBrightness);
+-    }
+-
+-    /** 
+-     * getCurrentScreenBrightMode
+-     * SCREEN_BRIGHTNESS_MODE_AUTOMATIC=1 auto
+-     * SCREEN_BRIGHTNESS_MODE_MANUAL=0  manual
+-     */  
+-    private int getScreenMode() {
+-        int screenMode=0;
+-        try {
+-            screenMode = Settings.System.getInt(getContentResolver(),
+-                    Settings.System.SCREEN_BRIGHTNESS_MODE);
+-        }
+-        catch (Exception localException){
+-            Log.e(TAG, "getScreenMode error:" + localException);
+-        }
+-        return screenMode;  
+-    }  
+-
+-    /** 
+-     * getScreenBrightness  0--255
+-     */  
+-    private int getScreenBrightness() {
+-        int screenBrightness = 255;
+-        try {
+-            screenBrightness = Settings.System.getInt(getContentResolver(),
+-                    Settings.System.SCREEN_BRIGHTNESS);
+-        }
+-        catch (Exception localException){
+-            Log.e(TAG, "getScreenBrightness error:" + localException);
+-        }
+-        return screenBrightness;  
+-    }
+-
+-    /** 
+-     * setScreenMode
+-     * SCREEN_BRIGHTNESS_MODE_AUTOMATIC=1 auto 
+-     * SCREEN_BRIGHTNESS_MODE_MANUAL=0  manual 
+-     */
+-    private void setScreenMode(int paramInt){
+-        if (paramInt < 0) return;
+-        try{  
+-            Settings.System.putInt(getContentResolver(),
+-                    Settings.System.SCREEN_BRIGHTNESS_MODE, paramInt);
+-        }catch (Exception localException){
+-            Log.e(TAG, "setScreenMode error:" + localException);
+-        }
+-    }
+-
+-    /** 
+-     * saveScreenBrightness  0--255
+-     */  
+-    private void saveScreenBrightness(int paramInt){
+-        if (paramInt < 0) return;
+-        try{  
+-            Settings.System.putInt(getContentResolver(),
+-                    Settings.System.SCREEN_BRIGHTNESS, paramInt);
+-        }
+-        catch (Exception localException) {
+-            Log.e(TAG, "saveScreenBrightness error:" + localException);
+-        }
+-    }
+-
+     @Override
+     public void onUserInteraction() {
+         super.onUserInteraction();
+@@ -2094,8 +1997,6 @@ public class CameraActivity extends QuickActivity
+     public void onPauseTasks() {
+         CameraPerformanceTracker.onEvent(CameraPerformanceTracker.ACTIVITY_PAUSE);
+         Profile profile = mProfiler.create("CameraActivity.onPause").start();
+-        restoreScreenBright();
+-
+         /*
+          * Save the last module index after all secure camera and icon launches,
+          * not just on mode switches.
+@@ -2425,7 +2326,9 @@ public class CameraActivity extends QuickActivity
+         }
+ 
+         keepScreenOnForAWhile();
+-        mMainHandler.postDelayed(mScreenBrightAdjust, 100);
++        /* Keep the user's display brightness.  The Rockchip camera app used
++         * to write 90% into Settings.System here; a camera crash then made
++         * that global value permanent. */
+ 
+         // Lights-out mode at all times.
+         final View rootView = findViewById(R.id.activity_root_view);
+diff --git a/packages/apps/Settings/res/values-zh-rCN/strings.xml b/packages/apps/Settings/res/values-zh-rCN/strings.xml
+index 96a76a58e20e477a76120ecab28d600ece688622..b45127e9342b8a0ff53e3dfa36b3359fc44978b7 100644
+--- a/packages/apps/Settings/res/values-zh-rCN/strings.xml
++++ b/packages/apps/Settings/res/values-zh-rCN/strings.xml
+@@ -4718,6 +4718,10 @@
+     <string name="assist_flash_summary" msgid="3032289860177784594">"当助手应用获取屏幕/屏幕截图上的文字时，让屏幕边缘闪烁"</string>
+     <string name="assist_footer" msgid="8248015363806299068">"助手应用可根据您当前浏览的屏幕上的内容为您提供帮助。某些应用同时支持启动器和语音输入服务，可为您提供更全面的协助。"</string>
+     <string name="average_memory_use" msgid="717313706368825388">"平均内存使用量"</string>
++    <string name="current_memory_use">"当前内存状态"</string>
++    <string name="memory_used">"已使用"</string>
++    <string name="available_memory">"可用内存"</string>
++    <string name="memory_usage_apps_current_summary">"查看应用内存详情"</string>
+     <string name="maximum_memory_use" msgid="2171779724001152933">"最高内存使用量"</string>
+     <string name="memory_usage" msgid="5594133403819880617">"内存使用量"</string>
+     <string name="app_list_memory_use" msgid="3178720339027577869">"应用的内存使用量"</string>
+diff --git a/packages/apps/Settings/res/values/strings.xml b/packages/apps/Settings/res/values/strings.xml
+index 40677a37093fa43e02bc15b2848ab066fc5e5903..7a32c528efd2db6a8b8e1e872b63867c4000d980 100644
+--- a/packages/apps/Settings/res/values/strings.xml
++++ b/packages/apps/Settings/res/values/strings.xml
+@@ -11244,6 +11244,11 @@
+     <!-- Label for average memory use section [CHAR LIMIT=30] -->
+     <string name="average_memory_use">Average memory use</string>
+ 
++    <string name="current_memory_use">Current memory status</string>
++    <string name="memory_used">Used memory</string>
++    <string name="available_memory">Available memory</string>
++    <string name="memory_usage_apps_current_summary">View app memory details</string>
++
+     <!-- Label for maximum memory use section [CHAR LIMIT=30] -->
+     <string name="maximum_memory_use">Maximum memory use</string>
+ 
+diff --git a/packages/apps/Settings/res/xml/process_stats_summary.xml b/packages/apps/Settings/res/xml/process_stats_summary.xml
+index 3b3271d769aa8c7431d2d46caf21147d34beeebd..506ae6738726f248c38b45f4ab930e89cfa18bfb 100644
+--- a/packages/apps/Settings/res/xml/process_stats_summary.xml
++++ b/packages/apps/Settings/res/xml/process_stats_summary.xml
+@@ -20,6 +20,7 @@
+     android:key="app_list">
+ 
+     <PreferenceCategory
++        android:key="memory_summary_category"
+         android:title="@string/average_memory_use"/>
+ 
+     <com.android.settings.SummaryPreference
+diff --git a/packages/apps/Settings/src/com/android/settings/applications/ProcessStatsBase.java b/packages/apps/Settings/src/com/android/settings/applications/ProcessStatsBase.java
+index ce1453ff635d8216ec22d63fdda97d557f9af033..17c2bd2b25af819efb45f9041d378a9dbe7ee596 100644
+--- a/packages/apps/Settings/src/com/android/settings/applications/ProcessStatsBase.java
++++ b/packages/apps/Settings/src/com/android/settings/applications/ProcessStatsBase.java
+@@ -128,6 +128,13 @@ public abstract class ProcessStatsBase extends SettingsPreferenceFragment
+         mFilterSpinner.setSelection(0);
+     }
+ 
++    /** Hides the historical duration selector for an instantaneous summary. */
++    protected void setDurationFilterVisible(boolean visible) {
++        if (mSpinnerHeader != null) {
++            mSpinnerHeader.setVisibility(visible ? View.VISIBLE : View.GONE);
++        }
++    }
++
+     public abstract void refreshUi();
+ 
+     public static void launchMemoryDetail(SettingsActivity activity, MemInfo memInfo,
+diff --git a/packages/apps/Settings/src/com/android/settings/applications/ProcessStatsSummary.java b/packages/apps/Settings/src/com/android/settings/applications/ProcessStatsSummary.java
+index a9f4ade704326c425fb07fa61960051e34a31790..6b247bf75687afa8be33f350f9264d0f3e00b939 100644
+--- a/packages/apps/Settings/src/com/android/settings/applications/ProcessStatsSummary.java
++++ b/packages/apps/Settings/src/com/android/settings/applications/ProcessStatsSummary.java
+@@ -15,14 +15,17 @@
+  */
+ package com.android.settings.applications;
+ 
++import android.app.ActivityManager;
+ import android.app.settings.SettingsEnums;
+ import android.content.Context;
+ import android.os.Bundle;
+ import android.text.format.Formatter;
+ import android.text.format.Formatter.BytesResult;
++import android.view.View;
+ 
+ import androidx.preference.Preference;
+ import androidx.preference.Preference.OnPreferenceClickListener;
++import androidx.preference.PreferenceCategory;
+ 
+ import com.android.settings.R;
+ import com.android.settings.SummaryPreference;
+@@ -33,6 +36,7 @@ import com.android.settings.core.SubSettingLauncher;
+ public class ProcessStatsSummary extends ProcessStatsBase implements OnPreferenceClickListener {
+ 
+     private static final String KEY_STATUS_HEADER = "status_header";
++    private static final String KEY_MEMORY_SUMMARY_CATEGORY = "memory_summary_category";
+ 
+     private static final String KEY_PERFORMANCE = "performance";
+     private static final String KEY_TOTAL_MEMORY = "total_memory";
+@@ -41,19 +45,28 @@ public class ProcessStatsSummary extends ProcessStatsBase implements OnPreferenc
+     private static final String KEY_APP_LIST = "apps_list";
+ 
+     private SummaryPreference mSummaryPref;
++    private PreferenceCategory mMemorySummaryCategory;
+ 
+     private Preference mPerformance;
+     private Preference mTotalMemory;
+     private Preference mAverageUsed;
+     private Preference mFree;
+     private Preference mAppListPreference;
++    private boolean mUseRealtimeMemory;
+ 
+     @Override
+     public void onCreate(Bundle icicle) {
+         super.onCreate(icicle);
+ 
++        // Historical ProcessStats is scaled to physical RAM and includes
++        // zram/shared pages.  On a low-RAM device it can therefore report
++        // nearly 100% used despite substantial reclaimable memory.
++        mUseRealtimeMemory = ActivityManager.isLowRamDeviceStatic();
++
+         addPreferencesFromResource(R.xml.process_stats_summary);
+         mSummaryPref = (SummaryPreference) findPreference(KEY_STATUS_HEADER);
++        mMemorySummaryCategory = (PreferenceCategory) findPreference(
++                KEY_MEMORY_SUMMARY_CATEGORY);
+         mPerformance = findPreference(KEY_PERFORMANCE);
+         mTotalMemory = findPreference(KEY_TOTAL_MEMORY);
+         mAverageUsed = findPreference(KEY_AVERAGY_USED);
+@@ -62,6 +75,14 @@ public class ProcessStatsSummary extends ProcessStatsBase implements OnPreferenc
+         mAppListPreference.setOnPreferenceClickListener(this);
+     }
+ 
++    @Override
++    public void onViewCreated(View view, Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++        if (mUseRealtimeMemory) {
++            setDurationFilterVisible(false);
++        }
++    }
++
+     @Override
+     public void refreshUi() {
+         Context context = getContext();
+@@ -71,18 +92,36 @@ public class ProcessStatsSummary extends ProcessStatsBase implements OnPreferenc
+         double usedRam = memInfo.realUsedRam;
+         double totalRam = memInfo.realTotalRam;
+         double freeRam = memInfo.realFreeRam;
++        CharSequence memString;
++
++        if (mUseRealtimeMemory) {
++            ActivityManager.MemoryInfo realtime = new ActivityManager.MemoryInfo();
++            ((ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryInfo(
++                    realtime);
++            totalRam = realtime.totalMem;
++            freeRam = realtime.availMem;
++            usedRam = Math.max(0, totalRam - freeRam);
++
++            CharSequence[] memStatesStr = getResources().getTextArray(R.array.ram_states);
++            memString = realtime.lowMemory
++                    ? memStatesStr[memStatesStr.length - 2] : memStatesStr[0];
++            mMemorySummaryCategory.setTitle(R.string.current_memory_use);
++            mAverageUsed.setTitle(R.string.memory_used);
++            mFree.setTitle(R.string.available_memory);
++            mAppListPreference.setSummary(R.string.memory_usage_apps_current_summary);
++        } else {
++            CharSequence[] memStatesStr = getResources().getTextArray(R.array.ram_states);
++            int memState = mStatsManager.getMemState();
++            if (memState >= 0 && memState < memStatesStr.length - 1) {
++                memString = memStatesStr[memState];
++            } else {
++                memString = memStatesStr[memStatesStr.length - 1];
++            }
++        }
+         BytesResult usedResult = Formatter.formatBytes(context.getResources(), (long) usedRam,
+                 Formatter.FLAG_SHORTER);
+         String totalString = Formatter.formatShortFileSize(context, (long) totalRam);
+         String freeString = Formatter.formatShortFileSize(context, (long) freeRam);
+-        CharSequence memString;
+-        CharSequence[] memStatesStr = getResources().getTextArray(R.array.ram_states);
+-        int memState = mStatsManager.getMemState();
+-        if (memState >= 0 && memState < memStatesStr.length - 1) {
+-            memString = memStatesStr[memState];
+-        } else {
+-            memString = memStatesStr[memStatesStr.length - 1];
+-        }
+         mSummaryPref.setAmount(usedResult.value);
+         mSummaryPref.setUnits(usedResult.units);
+         float usedRatio = (float)(usedRam / (freeRam + usedRam));
+diff --git a/packages/apps/Settings/src/com/android/settings/development/OemUnlockPreferenceController.java b/packages/apps/Settings/src/com/android/settings/development/OemUnlockPreferenceController.java
+index 118312a1bb1c913a7960680e82182a442ff3bb15..31664c866ebb67275c2689dc671f89d5ec310874 100644
+--- a/packages/apps/Settings/src/com/android/settings/development/OemUnlockPreferenceController.java
++++ b/packages/apps/Settings/src/com/android/settings/development/OemUnlockPreferenceController.java
+@@ -21,6 +21,7 @@ import static com.android.settings.development.DevelopmentOptionsActivityRequest
+ import android.app.Activity;
+ import android.content.Context;
+ import android.content.Intent;
++import android.content.pm.PackageManager;
+ import android.content.res.Resources;
+ import android.os.SystemProperties;
+ import android.os.UserHandle;
+@@ -176,6 +177,10 @@ public class OemUnlockPreferenceController extends DeveloperOptionsPreferenceCon
+ 
+     /** Returns {@code true} if the device is SIM-locked. Otherwise, returns {@code false}. */
+     private boolean isSimLockedDevice() {
++        if (!mContext.getPackageManager().hasSystemFeature(
++                PackageManager.FEATURE_TELEPHONY_CARRIERLOCK)) {
++            return false;
++        }
+         int phoneCount = mTelephonyManager.getPhoneCount();
+         for (int i = 0; i < phoneCount; i++) {
+             if (mTelephonyManager.getAllowedCarriers(i).size() > 0) {

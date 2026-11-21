@@ -1,0 +1,421 @@
+diff --git a/kernel-5.10/drivers/input/touchscreen/x7_sitronix_ts_main.c b/kernel-5.10/drivers/input/touchscreen/x7_sitronix_ts_main.c
+index ffa84b6ad5f913e2072066ce817075efd0b09c87..d639e3122a33edac00261e095f6f79e6e4d208f7 100644
+--- a/kernel-5.10/drivers/input/touchscreen/x7_sitronix_ts_main.c
++++ b/kernel-5.10/drivers/input/touchscreen/x7_sitronix_ts_main.c
+@@ -23,8 +23,8 @@ struct x7_sitronix {
+ 	u16 max_x;
+ 	u16 max_y;
+ 	u8 max_touches;
+-	u8 irq_low_count;
+ 	bool initialized;
++	bool touch_active;
+ 	bool force_recovery;
+ 	bool stopping;
+ };
+@@ -212,6 +212,7 @@ static irqreturn_t x7_st_irq_thread(int irq, void *context)
+ 	input_report_key(st->input, BTN_TOUCH, any);
+ 	input_mt_sync_frame(st->input);
+ 	input_sync(st->input);
++	st->touch_active = any;
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -274,6 +275,7 @@ static void x7_st_release_all(struct x7_sitronix *st)
+ 	input_report_key(st->input, BTN_TOUCH, false);
+ 	input_mt_sync_frame(st->input);
+ 	input_sync(st->input);
++	st->touch_active = false;
+ }
+ 
+ static void x7_st_init_work(struct work_struct *work)
+@@ -288,22 +290,22 @@ static void x7_st_init_work(struct work_struct *work)
+ 	    !gpio_get_value(st->panel_reset_gpio)) {
+ 		/* Reload as soon as the panel reset line is released. */
+ 		st->force_recovery = true;
+-		st->irq_low_count = 0;
+ 		goto reschedule;
+ 	}
+ 
+-	if (recovering && !force_recovery && gpio_get_value(st->irq_gpio)) {
+-		st->irq_low_count = 0;
+-		goto reschedule;
+-	}
+-	if (recovering && !force_recovery && ++st->irq_low_count < 2) {
+-		goto reschedule;
++	if (recovering && !force_recovery) {
++		/*
++		 * The X7 panel does not generate an edge for every coordinate frame.
++		 * Poll at touch rate while active and at a lower idle rate to discover
++		 * the next contact. Never reset the TDDI from this health path:
++		 * repeated resets also disturb the LCD controller.
++		 */
++		x7_st_irq_thread(st->irq, st);
++		goto reschedule_poll;
+ 	}
+ 	if (recovering) {
+ 		st->force_recovery = false;
+-		dev_warn(&st->spi->dev,
+-			 "%s; reloading touchscreen firmware\n",
+-			 force_recovery ? "resume recovery" : "IRQ stuck low");
++		dev_warn(&st->spi->dev, "resume recovery; reloading touchscreen firmware\n");
+ 		disable_irq(st->irq);
+ 	}
+ 
+@@ -329,6 +331,8 @@ static void x7_st_init_work(struct work_struct *work)
+ 	if (recovering) {
+ 		x7_st_release_all(st);
+ 		enable_irq(st->irq);
++		if (!gpio_get_value(st->irq_gpio))
++			x7_st_irq_thread(st->irq, st);
+ 		dev_info(&st->spi->dev, "touchscreen firmware recovered\n");
+ 	} else {
+ 		ret = x7_st_input_init(st);
+@@ -338,12 +342,19 @@ static void x7_st_init_work(struct work_struct *work)
+ 			goto reschedule;
+ 		}
+ 		st->initialized = true;
++		if (!gpio_get_value(st->irq_gpio))
++			x7_st_irq_thread(st->irq, st);
+ 	}
+-	st->irq_low_count = 0;
+ 
+ reschedule:
+ 	if (!st->stopping)
+ 		schedule_delayed_work(&st->init_work, msecs_to_jiffies(1000));
++	return;
++
++reschedule_poll:
++	if (!st->stopping)
++		schedule_delayed_work(&st->init_work,
++			msecs_to_jiffies(st->touch_active ? 10 : 50));
+ }
+ 
+ static int x7_st_probe(struct spi_device *spi)
+diff --git a/kernel-5.10/drivers/leds/Kconfig b/kernel-5.10/drivers/leds/Kconfig
+index 2b40b42c97223e6db053a4643af47f74b1c25a45..e15771c68b130a9e665c11c3c62e9dc76b6dff07 100644
+--- a/kernel-5.10/drivers/leds/Kconfig
++++ b/kernel-5.10/drivers/leds/Kconfig
+@@ -928,6 +928,14 @@ config LEDS_SGM3140
+ 	  This option enables support for the SGM3140 500mA Buck/Boost Charge
+ 	  Pump LED Driver.
+ 
++config LEDS_X7PRO_SCAN
++	tristate "Youdao X7 Pro scan-head LEDs"
++	depends on OF && GPIOLIB
++	depends on LEDS_CLASS_FLASH
++	help
++	  Expose the X7 Pro white and infrared scan-head LEDs through the LED
++	  flash class.
++
+ config LEDS_ACER_A500
+ 	tristate "Power button LED support for Acer Iconia Tab A500"
+ 	depends on LEDS_CLASS && MFD_ACER_A500_EC
+diff --git a/kernel-5.10/drivers/leds/Makefile b/kernel-5.10/drivers/leds/Makefile
+index 66239056bc933aafca5f38e6138704cdd687ee47..8949491cf6b4b4390bce04ee70fda1efe3a603aa 100644
+--- a/kernel-5.10/drivers/leds/Makefile
++++ b/kernel-5.10/drivers/leds/Makefile
+@@ -94,6 +94,7 @@ obj-$(CONFIG_LEDS_TURRIS_OMNIA)		+= leds-turris-omnia.o
+ obj-$(CONFIG_LEDS_WM831X_STATUS)	+= leds-wm831x-status.o
+ obj-$(CONFIG_LEDS_WM8350)		+= leds-wm8350.o
+ obj-$(CONFIG_LEDS_WRAP)			+= leds-wrap.o
++obj-$(CONFIG_LEDS_X7PRO_SCAN)		+= leds-x7pro-scan.o
+ 
+ # LED SPI Drivers
+ obj-$(CONFIG_LEDS_CR0014114)		+= leds-cr0014114.o
+diff --git a/kernel-5.10/drivers/leds/leds-x7pro-scan.c b/kernel-5.10/drivers/leds/leds-x7pro-scan.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..615d0a5e261ec492e250e0adec5cf5614121408f
+--- /dev/null
++++ b/kernel-5.10/drivers/leds/leds-x7pro-scan.c
+@@ -0,0 +1,192 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/* X7 Pro scan-head white and infrared LEDs. */
++
++#include <linux/gpio/consumer.h>
++#include <linux/led-class-flash.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/workqueue.h>
++
++#define X7PRO_FLASH_TIMEOUT_US	250000U
++
++struct x7pro_led_channel {
++	struct gpio_desc *gpio;
++	struct led_classdev_flash fled;
++	struct delayed_work timeout_work;
++	bool on;
++};
++
++struct x7pro_scan_leds {
++	struct x7pro_led_channel ir;
++	struct x7pro_led_channel white;
++};
++
++static struct x7pro_led_channel *to_x7pro_channel(struct led_classdev *cdev)
++{
++	return container_of(lcdev_to_flcdev(cdev),
++			    struct x7pro_led_channel, fled);
++}
++
++static struct x7pro_led_channel *fled_to_x7pro_channel(
++		struct led_classdev_flash *fled)
++{
++	return container_of(fled, struct x7pro_led_channel, fled);
++}
++
++static void x7pro_led_set(struct x7pro_led_channel *channel, bool on)
++{
++	gpiod_set_value_cansleep(channel->gpio, on);
++	channel->on = on;
++}
++
++static int x7pro_brightness_set(struct led_classdev *cdev,
++				enum led_brightness brightness)
++{
++	struct x7pro_led_channel *channel = to_x7pro_channel(cdev);
++
++	cancel_delayed_work_sync(&channel->timeout_work);
++	x7pro_led_set(channel, brightness != LED_OFF);
++	return 0;
++}
++
++static void x7pro_timeout_work(struct work_struct *work)
++{
++	struct x7pro_led_channel *channel = container_of(
++		to_delayed_work(work), struct x7pro_led_channel, timeout_work);
++
++	x7pro_led_set(channel, false);
++}
++
++static int x7pro_strobe_set(struct led_classdev_flash *fled, bool state)
++{
++	struct x7pro_led_channel *channel = fled_to_x7pro_channel(fled);
++
++	cancel_delayed_work_sync(&channel->timeout_work);
++	x7pro_led_set(channel, state);
++	if (state)
++		schedule_delayed_work(&channel->timeout_work,
++			usecs_to_jiffies(fled->timeout.val));
++	return 0;
++}
++
++static int x7pro_strobe_get(struct led_classdev_flash *fled, bool *state)
++{
++	*state = fled_to_x7pro_channel(fled)->on;
++	return 0;
++}
++
++static int x7pro_flash_brightness_set(struct led_classdev_flash *fled,
++				      u32 brightness)
++{
++	fled->brightness.val = brightness;
++	return 0;
++}
++
++static int x7pro_timeout_set(struct led_classdev_flash *fled, u32 timeout)
++{
++	fled->timeout.val = timeout;
++	return 0;
++}
++
++static const struct led_flash_ops x7pro_flash_ops = {
++	.flash_brightness_set = x7pro_flash_brightness_set,
++	.strobe_set = x7pro_strobe_set,
++	.strobe_get = x7pro_strobe_get,
++	.timeout_set = x7pro_timeout_set,
++};
++
++static int x7pro_register_channel(struct device *dev,
++				  struct x7pro_led_channel *channel,
++				  struct gpio_desc *gpio, const char *name)
++{
++	struct led_classdev *cdev = &channel->fled.led_cdev;
++
++	channel->gpio = gpio;
++	INIT_DELAYED_WORK(&channel->timeout_work, x7pro_timeout_work);
++	channel->fled.ops = &x7pro_flash_ops;
++	channel->fled.brightness.min = 0;
++	channel->fled.brightness.max = 1;
++	channel->fled.brightness.step = 1;
++	channel->fled.brightness.val = 1;
++	channel->fled.timeout.min = 1000;
++	channel->fled.timeout.max = 1000000;
++	channel->fled.timeout.step = 1000;
++	channel->fled.timeout.val = X7PRO_FLASH_TIMEOUT_US;
++	cdev->name = name;
++	cdev->max_brightness = 1;
++	cdev->brightness_set_blocking = x7pro_brightness_set;
++	cdev->flags = LED_DEV_CAP_FLASH;
++
++	return devm_led_classdev_flash_register(dev, &channel->fled);
++}
++
++static int x7pro_scan_led_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct x7pro_scan_leds *leds;
++	struct gpio_desc *gpio43;
++	struct gpio_desc *gpio44;
++	int ret;
++
++	leds = devm_kzalloc(dev, sizeof(*leds), GFP_KERNEL);
++	if (!leds)
++		return -ENOMEM;
++
++	/*
++	 * Factory userspace and the board schematic use GPIO43 for infrared and
++	 * GPIO44 for white.  The captured DT accidentally names those properties
++	 * the other way around, so preserve the proven factory numbering here.
++	 */
++	gpio43 = devm_gpiod_get_from_of_node(dev, dev->of_node, "white-gpio", 0,
++					      GPIOD_OUT_LOW, "x7pro-ir");
++	if (IS_ERR(gpio43))
++		return dev_err_probe(dev, PTR_ERR(gpio43), "get GPIO43/IR\n");
++	gpio44 = devm_gpiod_get_from_of_node(dev, dev->of_node, "ir-gpio", 0,
++					      GPIOD_OUT_LOW, "x7pro-white");
++	if (IS_ERR(gpio44))
++		return dev_err_probe(dev, PTR_ERR(gpio44), "get GPIO44/white\n");
++
++	ret = x7pro_register_channel(dev, &leds->ir, gpio43,
++				     "x7pro:ir:flash");
++	if (ret)
++		return ret;
++	ret = x7pro_register_channel(dev, &leds->white, gpio44,
++				     "x7pro:white:flash");
++	if (ret)
++		return ret;
++
++	platform_set_drvdata(pdev, leds);
++	dev_info(dev, "registered IR GPIO43 and white GPIO44 scan LEDs\n");
++	return 0;
++}
++
++static int x7pro_scan_led_remove(struct platform_device *pdev)
++{
++	struct x7pro_scan_leds *leds = platform_get_drvdata(pdev);
++
++	cancel_delayed_work_sync(&leds->ir.timeout_work);
++	cancel_delayed_work_sync(&leds->white.timeout_work);
++	x7pro_led_set(&leds->ir, false);
++	x7pro_led_set(&leds->white, false);
++	return 0;
++}
++
++static const struct of_device_id x7pro_scan_led_of_match[] = {
++	{ .compatible = "led_control" },
++	{}
++};
++MODULE_DEVICE_TABLE(of, x7pro_scan_led_of_match);
++
++static struct platform_driver x7pro_scan_led_driver = {
++	.probe = x7pro_scan_led_probe,
++	.remove = x7pro_scan_led_remove,
++	.driver = {
++		.name = "x7pro-scan-led",
++		.of_match_table = x7pro_scan_led_of_match,
++	},
++};
++module_platform_driver(x7pro_scan_led_driver);
++
++MODULE_DESCRIPTION("Youdao X7 Pro scan-head LED driver");
++MODULE_LICENSE("GPL");
+diff --git a/kernel-5.10/drivers/video/rockchip/rga3/rga_mm.c b/kernel-5.10/drivers/video/rockchip/rga3/rga_mm.c
+index d261833b3ace9da8c3d330eabb6d4d02fc0ba248..b82096bcc882e20f33b966ef5038663607a58c37 100644
+--- a/kernel-5.10/drivers/video/rockchip/rga3/rga_mm.c
++++ b/kernel-5.10/drivers/video/rockchip/rga3/rga_mm.c
+@@ -16,6 +16,8 @@
+ #include "rga_hw_config.h"
+ #include "rga_debugger.h"
+ 
++#include <linux/dma-direct.h>
++
+ static void rga_current_mm_read_lock(struct mm_struct *mm)
+ {
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+@@ -1309,17 +1311,30 @@ static int rga_mm_sync_dma_sg_for_device(struct rga_internal_buffer *buffer,
+ 		return -EFAULT;
+ 	}
+ 
+-	if (buffer->mm_flag & RGA_MEM_PHYSICAL_CONTIGUOUS) {
+-		dma_sync_single_for_device(scheduler->dev, buffer->phys_addr, buffer->size, dir);
+-	} else {
+-		sgt = rga_mm_lookup_sgt(buffer);
+-		if (sgt == NULL) {
+-			pr_err("%s(%d), failed to get sgt, core = 0x%x\n",
+-			       __func__, __LINE__, job->core);
++	/*
++	 * phys_addr is a CPU physical address, not necessarily a DMA address.
++	 * RK3562's RGA device has a non-zero dma_pfn_offset; passing phys_addr
++	 * directly to dma_sync_single_*() subtracts that offset a second time and
++	 * can make arch_sync_dma_for_device clean physical address zero. Prefer
++	 * the already DMA-mapped scatterlist even when it has one contiguous entry.
++	 */
++	sgt = rga_mm_lookup_sgt(buffer);
++	if (sgt != NULL) {
++		dma_sync_sg_for_device(scheduler->dev, sgt->sgl, sgt->orig_nents, dir);
++	} else if (buffer->mm_flag & RGA_MEM_PHYSICAL_CONTIGUOUS) {
++		if (buffer->phys_addr == 0 || buffer->size == 0) {
++			pr_err("%s(%d), invalid physical buffer pa=0x%llx size=%lu\n",
++			       __func__, __LINE__, buffer->phys_addr, buffer->size);
+ 			return -EINVAL;
+ 		}
+-
+-		dma_sync_sg_for_device(scheduler->dev, sgt->sgl, sgt->orig_nents, dir);
++		dma_sync_single_for_device(scheduler->dev,
++					   phys_to_dma(scheduler->dev,
++						       buffer->phys_addr),
++					   buffer->size, dir);
++	} else {
++		pr_err("%s(%d), failed to get sgt, core = 0x%x\n",
++		       __func__, __LINE__, job->core);
++		return -EINVAL;
+ 	}
+ 
+ 	return 0;
+@@ -1339,17 +1354,23 @@ static int rga_mm_sync_dma_sg_for_cpu(struct rga_internal_buffer *buffer,
+ 		return -EFAULT;
+ 	}
+ 
+-	if (buffer->mm_flag & RGA_MEM_PHYSICAL_CONTIGUOUS) {
+-		dma_sync_single_for_cpu(scheduler->dev, buffer->phys_addr, buffer->size, dir);
+-	} else {
+-		sgt = rga_mm_lookup_sgt(buffer);
+-		if (sgt == NULL) {
+-			pr_err("%s(%d), failed to get sgt, core = 0x%x\n",
+-			       __func__, __LINE__, job->core);
++	sgt = rga_mm_lookup_sgt(buffer);
++	if (sgt != NULL) {
++		dma_sync_sg_for_cpu(scheduler->dev, sgt->sgl, sgt->orig_nents, dir);
++	} else if (buffer->mm_flag & RGA_MEM_PHYSICAL_CONTIGUOUS) {
++		if (buffer->phys_addr == 0 || buffer->size == 0) {
++			pr_err("%s(%d), invalid physical buffer pa=0x%llx size=%lu\n",
++			       __func__, __LINE__, buffer->phys_addr, buffer->size);
+ 			return -EINVAL;
+ 		}
+-
+-		dma_sync_sg_for_cpu(scheduler->dev, sgt->sgl, sgt->orig_nents, dir);
++		dma_sync_single_for_cpu(scheduler->dev,
++					phys_to_dma(scheduler->dev,
++						    buffer->phys_addr),
++					buffer->size, dir);
++	} else {
++		pr_err("%s(%d), failed to get sgt, core = 0x%x\n",
++		       __func__, __LINE__, job->core);
++		return -EINVAL;
+ 	}
+ 
+ 	return 0;
+diff --git a/kernel-5.10/kernel/configs/x7pro.config b/kernel-5.10/kernel/configs/x7pro.config
+index 8123b10ae4c1d8121a0ccb3e0c2c9fa885184f9a..1ee60abbc105c01f64ea2408cda83aa676095a7b 100644
+--- a/kernel-5.10/kernel/configs/x7pro.config
++++ b/kernel-5.10/kernel/configs/x7pro.config
+@@ -93,6 +93,8 @@ CONFIG_ROCKCHIP_MPP_RKVENC2=y
+ # CONFIG_TRIM_UNUSED_KSYMS is not set
+ # X7 Pro scan camera; GC8034/DW9714/AW883XX are already =y in rockchip_defconfig.
+ CONFIG_VIDEO_SC035GS=y
++CONFIG_LEDS_CLASS_FLASH=y
++CONFIG_LEDS_X7PRO_SCAN=y
+ CONFIG_X7PRO_TP_REPORT_COMPAT=y
+ # U-Boot arms the hardware watchdog (snps,dw-wdt) on every normal boot;
+ # the kernel must register the driver to feed it.

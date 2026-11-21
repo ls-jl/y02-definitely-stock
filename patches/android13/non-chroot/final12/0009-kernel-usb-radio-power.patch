@@ -1,0 +1,2086 @@
+diff --git a/kernel-5.10/drivers/mmc/core/core.c b/kernel-5.10/drivers/mmc/core/core.c
+index 365065fe38151b42eb6a6fb9a2d4985e74f40f67..5feaaf0205043f976ad92caa0e83d58a1e1b9545 100644
+--- a/kernel-5.10/drivers/mmc/core/core.c
++++ b/kernel-5.10/drivers/mmc/core/core.c
+@@ -1540,6 +1540,11 @@ void mmc_init_erase(struct mmc_card *card)
+ 		card->pref_erase = 0;
+ }
+ 
++static bool is_trim_arg(unsigned int arg)
++{
++	return (arg & MMC_TRIM_OR_DISCARD_ARGS) && arg != MMC_DISCARD_ARG;
++}
++
+ static unsigned int mmc_mmc_erase_timeout(struct mmc_card *card,
+ 				          unsigned int arg, unsigned int qty)
+ {
+@@ -1838,7 +1843,7 @@ int mmc_erase(struct mmc_card *card, unsigned int from, unsigned int nr,
+ 	    !(card->ext_csd.sec_feature_support & EXT_CSD_SEC_ER_EN))
+ 		return -EOPNOTSUPP;
+ 
+-	if (mmc_card_mmc(card) && (arg & MMC_TRIM_ARGS) &&
++	if (mmc_card_mmc(card) && is_trim_arg(arg) &&
+ 	    !(card->ext_csd.sec_feature_support & EXT_CSD_SEC_GB_CL_EN))
+ 		return -EOPNOTSUPP;
+ 
+@@ -1868,7 +1873,7 @@ int mmc_erase(struct mmc_card *card, unsigned int from, unsigned int nr,
+ 	 * identified by the card->eg_boundary flag.
+ 	 */
+ 	rem = card->erase_size - (from % card->erase_size);
+-	if ((arg & MMC_TRIM_ARGS) && (card->eg_boundary) && (nr > rem)) {
++	if ((arg & MMC_TRIM_OR_DISCARD_ARGS) && card->eg_boundary && nr > rem) {
+ 		err = mmc_do_erase(card, from, from + rem - 1, arg);
+ 		from += rem;
+ 		if ((err) || (to <= from))
+diff --git a/kernel-5.10/drivers/mmc/core/host.c b/kernel-5.10/drivers/mmc/core/host.c
+index 10116f7810df37cbed4e9c812144602ab3935cee..63624374e917cc1908ed2069de705ff23c2a381e 100644
+--- a/kernel-5.10/drivers/mmc/core/host.c
++++ b/kernel-5.10/drivers/mmc/core/host.c
+@@ -526,6 +526,9 @@ static int mmc_validate_host_caps(struct mmc_host *host)
+ 	return 0;
+ }
+ 
++/* Primary SDIO host, saved for mmc_host_rescan() callers passing NULL. */
++static struct mmc_host *primary_sdio_host;
++
+ /**
+  *	mmc_add_host - initialise host hardware
+  *	@host: mmc host
+@@ -553,11 +556,62 @@ int mmc_add_host(struct mmc_host *host)
+ #endif
+ 
+ 	mmc_start_host(host);
++
++	/*
++	 * Remember the primary SDIO host (SDIO-only slot, e.g. the Wi-Fi
++	 * chip) so that mmc_host_rescan() can find it when callers pass
++	 * NULL, like the Rockchip rfkill driver does.
++	 */
++	if (!READ_ONCE(primary_sdio_host) &&
++	    !(host->caps2 & MMC_CAP2_NO_SDIO) &&
++	    (host->caps2 & MMC_CAP2_NO_SD) &&
++	    (host->caps2 & MMC_CAP2_NO_MMC))
++		WRITE_ONCE(primary_sdio_host, host);
++
+ 	return 0;
+ }
+ 
+ EXPORT_SYMBOL(mmc_add_host);
+ 
++/**
++ *	mmc_host_rescan - trigger a software rescan flow
++ *	@host: mmc host, or NULL for the primary SDIO host
++ *	@val: new card detect state
++ *	@is_cap_sdio_irq: 1 to set MMC_CAP_SDIO_IRQ, 0 to clear it
++ *
++ *	Rockchip vendor interface used by rfkill-rk.ko on the X7 Pro to
++ *	re-enumerate the SDIO Wi-Fi chip after a power cycle. Rescans the
++ *	slot attached to @host; if @host is NULL, rescans the primary
++ *	SDIO host saved by mmc_add_host().
++ */
++int mmc_host_rescan(struct mmc_host *host, int val, int is_cap_sdio_irq)
++{
++	if (!host) {
++		host = READ_ONCE(primary_sdio_host);
++		if (!host) {
++			pr_err("sdio: no primary SDIO host registered\n");
++			return -ENOMEDIUM;
++		}
++	}
++
++	if (is_cap_sdio_irq == 1)
++		host->caps |= MMC_CAP_SDIO_IRQ;
++	else if (is_cap_sdio_irq == 0)
++		host->caps &= ~MMC_CAP_SDIO_IRQ;
++	else
++		return -EINVAL;
++
++	if (!(host->caps & MMC_CAP_NONREMOVABLE) &&
++	    host->ops->set_sdio_status)
++		return host->ops->set_sdio_status(host, val);
++
++	if (!(host->caps & MMC_CAP_NONREMOVABLE))
++		mmc_detect_change(host, 0);
++
++	return 0;
++}
++EXPORT_SYMBOL(mmc_host_rescan);
++
+ /**
+  *	mmc_remove_host - remove host hardware
+  *	@host: mmc host
+@@ -568,6 +622,9 @@ EXPORT_SYMBOL(mmc_add_host);
+  */
+ void mmc_remove_host(struct mmc_host *host)
+ {
++	if (READ_ONCE(primary_sdio_host) == host)
++		WRITE_ONCE(primary_sdio_host, NULL);
++
+ 	mmc_stop_host(host);
+ 
+ #ifdef CONFIG_DEBUG_FS
+diff --git a/kernel-5.10/drivers/mmc/core/mmc_test.c b/kernel-5.10/drivers/mmc/core/mmc_test.c
+index 152e7525ed338ea3c70691471359cc6dbfe1e6f0..b9b6f000154bb8f49fd12bf79f4db502becd9209 100644
+--- a/kernel-5.10/drivers/mmc/core/mmc_test.c
++++ b/kernel-5.10/drivers/mmc/core/mmc_test.c
+@@ -3195,7 +3195,8 @@ static int __mmc_test_register_dbgfs_file(struct mmc_card *card,
+ 	struct mmc_test_dbgfs_file *df;
+ 
+ 	if (card->debugfs_root)
+-		debugfs_create_file(name, mode, card->debugfs_root, card, fops);
++		file = debugfs_create_file(name, mode, card->debugfs_root,
++					   card, fops);
+ 
+ 	df = kmalloc(sizeof(*df), GFP_KERNEL);
+ 	if (!df) {
+diff --git a/kernel-5.10/drivers/power/supply/rk817_battery.c b/kernel-5.10/drivers/power/supply/rk817_battery.c
+index 6979531052cc9eedd8435cdc4ff6c195b4d87cb7..1dadf78b80acd14117f744ce44879b8ece5d14e7 100644
+--- a/kernel-5.10/drivers/power/supply/rk817_battery.c
++++ b/kernel-5.10/drivers/power/supply/rk817_battery.c
+@@ -1764,6 +1764,67 @@ static void rk817_bat_init_fg(struct rk817_battery_device *battery)
+ 	DBG("OCV_THRE_VOL: 0x%x", rk817_bat_field_read(battery, OCV_THRE_VOL));
+ }
+ 
++static struct device_node *
++rk817_bat_select_profile(struct rk817_battery_device *battery,
++			 struct device_node *parent)
++{
++	struct device_node *profile, *best = NULL;
++	struct iio_channel *channel;
++	char name[24];
++	u32 type_res_diff = 30, type_res;
++	int best_delta = 0x7fffffff;
++	int delta, index, raw, ret;
++
++	if (!of_get_child_count(parent))
++		return NULL;
++
++	of_property_read_u32(parent, "type_res_diff", &type_res_diff);
++	channel = devm_iio_channel_get(battery->dev, NULL);
++	if (IS_ERR(channel)) {
++		dev_warn(battery->dev, "battery type ADC unavailable: %ld\n",
++			 PTR_ERR(channel));
++		return of_get_child_by_name(parent, "battery_type,0");
++	}
++
++	ret = iio_read_channel_raw(channel, &raw);
++	if (ret < 0) {
++		dev_warn(battery->dev, "battery type ADC read failed: %d\n", ret);
++		return of_get_child_by_name(parent, "battery_type,0");
++	}
++
++	for (index = 0; index < 16; index++) {
++		snprintf(name, sizeof(name), "battery_type,%d", index);
++		profile = of_get_child_by_name(parent, name);
++		if (!profile)
++			break;
++		if (of_property_read_u32(profile, "bat_type_res", &type_res)) {
++			of_node_put(profile);
++			continue;
++		}
++
++		delta = abs(raw - (int)type_res);
++		if (delta < best_delta) {
++			of_node_put(best);
++			best = profile;
++			best_delta = delta;
++		} else {
++			of_node_put(profile);
++		}
++	}
++
++	if (!best)
++		best = of_get_child_by_name(parent, "battery_type,0");
++	if (best_delta > type_res_diff)
++		dev_warn(battery->dev,
++			 "battery type ADC %d outside tolerance %u (delta %d)\n",
++			 raw, type_res_diff, best_delta);
++	else
++		dev_info(battery->dev, "battery profile %pOF selected (ADC %d)\n",
++			 best, raw);
++
++	return best;
++}
++
+ static int rk817_bat_parse_dt(struct rk817_battery_device *battery)
+ {
+ 	u32 out_value;
+@@ -1772,6 +1833,7 @@ static int rk817_bat_parse_dt(struct rk817_battery_device *battery)
+ 	struct battery_platform_data *pdata;
+ 	struct device *dev = battery->dev;
+ 	struct device_node *np = battery->dev->of_node;
++	struct device_node *profile_np;
+ 
+ 	pdata = devm_kzalloc(battery->dev, sizeof(*pdata), GFP_KERNEL);
+ 	if (!pdata)
+@@ -1793,40 +1855,47 @@ static int rk817_bat_parse_dt(struct rk817_battery_device *battery)
+ 	pdata->zero_reserve_dsoc = DEFAULT_ZERO_RESERVE_DSOC * 1000;
+ 
+ 	pdata->sample_res = DEFAULT_SAMPLE_RES;
++	profile_np = rk817_bat_select_profile(battery, np);
++	if (profile_np)
++		np = profile_np;
+ 
+ 	/* parse necessary param */
+ 	if (!of_find_property(np, "ocv_table", &length)) {
+ 		dev_err(dev, "ocv_table not found!\n");
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto out_put_profile;
+ 	}
+ 
+ 	pdata->ocv_size = length / sizeof(u32);
+ 	if (pdata->ocv_size <= 0) {
+ 		dev_err(dev, "invalid ocv table\n");
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto out_put_profile;
+ 	}
+ 
+ 	size = sizeof(*pdata->ocv_table) * pdata->ocv_size;
+ 	pdata->ocv_table = devm_kzalloc(battery->dev, size, GFP_KERNEL);
+-	if (!pdata->ocv_table)
+-		return -ENOMEM;
++	if (!pdata->ocv_table) {
++		ret = -ENOMEM;
++		goto out_put_profile;
++	}
+ 
+ 	ret = of_property_read_u32_array(np, "ocv_table", pdata->ocv_table,
+ 					 pdata->ocv_size);
+ 	if (ret < 0)
+-		return ret;
++		goto out_put_profile;
+ 
+ 	ret = of_property_read_u32(np, "design_capacity", &out_value);
+ 	if (ret < 0) {
+ 		dev_err(dev, "design_capacity not found!\n");
+-		return ret;
++		goto out_put_profile;
+ 	}
+ 	pdata->design_capacity = out_value;
+ 
+ 	ret = of_property_read_u32(np, "design_qmax", &out_value);
+ 	if (ret < 0) {
+ 		dev_err(dev, "design_qmax not found!\n");
+-		return ret;
++		goto out_put_profile;
+ 	}
+ 	pdata->design_qmax = out_value;
+ 
+@@ -1944,7 +2013,11 @@ static int rk817_bat_parse_dt(struct rk817_battery_device *battery)
+ 	    pdata->bat_mode,
+ 	    pdata->pwroff_vol);
+ 
+-	return 0;
++	ret = 0;
++
++out_put_profile:
++	of_node_put(profile_np);
++	return ret;
+ }
+ 
+ static enum power_supply_property rk817_bat_props[] = {
+diff --git a/kernel-5.10/drivers/usb/dwc3/Makefile b/kernel-5.10/drivers/usb/dwc3/Makefile
+index 2259f8876fb2f2679ddf5c6914724d86f2bb09df..161870cfb0e12391afc2b79121dc91fb83dea3c3 100644
+--- a/kernel-5.10/drivers/usb/dwc3/Makefile
++++ b/kernel-5.10/drivers/usb/dwc3/Makefile
+@@ -2,7 +2,21 @@
+ # define_trace.h needs to know how to find our header
+ CFLAGS_trace.o				:= -I$(src)
+ 
++# The RK3562 dictionary-pen DWC3 integration is validated with the vendor
++# size-optimized code generation. Keep this local to the X7 Pro config rather
++# than changing optimization for the complete Android kernel.
++ifdef CONFIG_X7PRO_TP_REPORT_COMPAT
++CFLAGS_core.o				+= -Os
++CFLAGS_trace.o				+= -Os
++CFLAGS_host.o				+= -Os
++CFLAGS_gadget.o				+= -Os
++CFLAGS_ep0.o				+= -Os
++CFLAGS_drd.o				+= -Os
++CFLAGS_debugfs.o			+= -Os
++endif
++
+ obj-$(CONFIG_USB_DWC3)			+= dwc3.o
++obj-y					+= x7regdump.o
+ 
+ dwc3-y					:= core.o
+ 
+diff --git a/kernel-5.10/drivers/usb/dwc3/core.h b/kernel-5.10/drivers/usb/dwc3/core.h
+index 11ac1e0fe65f99efe2fd464ba5659b833a568a8a..ee561ad10345f8c1721a306ab51680d3bf6730ea 100644
+--- a/kernel-5.10/drivers/usb/dwc3/core.h
++++ b/kernel-5.10/drivers/usb/dwc3/core.h
+@@ -1253,7 +1253,6 @@ struct dwc3 {
+ 	u16			u2pel;
+ 	u8			u1sel;
+ 	u8			u1pel;
+-
+ 	u8			speed;
+ 
+ 	u8			num_eps;
+@@ -1663,3 +1662,5 @@ static inline void dwc3_ulpi_exit(struct dwc3 *dwc)
+ #endif
+ 
+ #endif /* __DRIVERS_USB_DWC3_CORE_H */
++
++void x7_regdump_start(struct dwc3 *dwc);
+diff --git a/kernel-5.10/drivers/usb/dwc3/ep0.c b/kernel-5.10/drivers/usb/dwc3/ep0.c
+index 7ae1b4a663d1747bea12d552e486204bb13b8886..2f703a1acd4b148f1d2044e3aaa03a830d99f670 100644
+--- a/kernel-5.10/drivers/usb/dwc3/ep0.c
++++ b/kernel-5.10/drivers/usb/dwc3/ep0.c
+@@ -66,8 +66,11 @@ static int dwc3_ep0_start_trans(struct dwc3_ep *dep)
+ 	struct dwc3			*dwc;
+ 	int				ret;
+ 
+-	if (dep->flags & DWC3_EP_TRANSFER_STARTED)
++	if (dep->flags & DWC3_EP_TRANSFER_STARTED) {
++		dev_err(dep->dwc->dev, "ep0 start skip: %s flags=0x%x\n",
++			dep->name, dep->flags);
+ 		return 0;
++	}
+ 
+ 	dwc = dep->dwc;
+ 
+@@ -79,6 +82,13 @@ static int dwc3_ep0_start_trans(struct dwc3_ep *dep)
+ 	if (ret < 0)
+ 		return ret;
+ 
++	dev_err(dwc->dev,
++		"ep0 start: %s trb=0x%08x gtxfifo0=0x%08x dsts=0x%08x dcfg=0x%08x\n",
++		dep->name, lower_32_bits(dwc->ep0_trb_addr),
++		dwc3_readl(dwc->regs, DWC3_GTXFIFOSIZ(0)),
++		dwc3_readl(dwc->regs, DWC3_DSTS),
++		dwc3_readl(dwc->regs, DWC3_DCFG));
++
+ 	dwc->ep0_next_event = DWC3_EP0_COMPLETE;
+ 
+ 	return 0;
+@@ -92,6 +102,7 @@ static int __dwc3_gadget_ep0_queue(struct dwc3_ep *dep,
+ 	req->request.actual	= 0;
+ 	req->request.status	= -EINPROGRESS;
+ 	req->epnum		= dep->number;
++	req->status		= DWC3_REQUEST_STATUS_QUEUED;
+ 
+ 	list_add_tail(&req->list, &dep->pending_list);
+ 
+@@ -236,7 +247,10 @@ void dwc3_ep0_stall_and_restart(struct dwc3 *dwc)
+ 		struct dwc3_request	*req;
+ 
+ 		req = next_request(&dep->pending_list);
+-		dwc3_gadget_giveback(dep, req, -ECONNRESET);
++		if (!dwc->connected)
++			dwc3_gadget_giveback(dep, req, -ESHUTDOWN);
++		else
++			dwc3_gadget_giveback(dep, req, -ECONNRESET);
+ 	}
+ 
+ 	dwc->eps[0]->trb_enqueue = 0;
+@@ -851,12 +865,33 @@ static void dwc3_ep0_inspect_setup(struct dwc3 *dwc,
+ 	else
+ 		ret = dwc3_ep0_delegate_req(dwc, ctrl);
+ 
++	dev_err(dwc->dev,
++		"ep0 req: %02x %02x %04x %04x %04x state=%d ret=%d\n",
++		ctrl->bRequestType, ctrl->bRequest,
++		le16_to_cpu(ctrl->wValue), le16_to_cpu(ctrl->wIndex),
++		le16_to_cpu(ctrl->wLength), dwc->ep0state, ret);
++	dev_err(dwc->dev, "ep0 raw: %*ph\n", 8, ctrl);
++	if (ctrl->bRequest > 0x0d) {
++		struct dwc3_ep *dep0 = dwc->eps[0];
++
++		dev_err(dwc->dev,
++			"ep0 suspect: enqueue=%d next_evt=%d trb0=%*ph trb1=%*ph\n",
++			dep0->trb_enqueue, dwc->ep0_next_event,
++			16, &dwc->ep0_trb[0], 16, &dwc->ep0_trb[1]);
++	}
++
+ 	if (ret == USB_GADGET_DELAYED_STATUS)
+ 		dwc->delayed_status = true;
+ 
+ out:
+-	if (ret < 0)
++	if (ret < 0) {
++		dev_err(dwc->dev,
++			"ep0 stall: bRequestType=0x%02x bRequest=0x%02x wValue=0x%04x wIndex=0x%04x wLength=%u ret=%d\n",
++			ctrl->bRequestType, ctrl->bRequest,
++			le16_to_cpu(ctrl->wValue), le16_to_cpu(ctrl->wIndex),
++			le16_to_cpu(ctrl->wLength), ret);
+ 		dwc3_ep0_stall_and_restart(dwc);
++	}
+ }
+ 
+ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
+@@ -911,10 +946,20 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
+ 		dwc->ep0_bounced = false;
+ 	}
+ 
+-	if ((epnum & 1) && ur->actual < ur->length)
++	if ((epnum & 1) && ur->actual < ur->length) {
++		struct usb_ctrlrequest *ctrl = (void *) dwc->ep0_trb;
++
++		dev_err(dwc->dev,
++			"ep0in short: actual=%u length=%u setup=%02x %02x %04x %04x %04x\n",
++			ur->actual, ur->length,
++			ctrl->bRequestType, ctrl->bRequest,
++			le16_to_cpu(ctrl->wValue),
++			le16_to_cpu(ctrl->wIndex),
++			le16_to_cpu(ctrl->wLength));
+ 		dwc3_ep0_stall_and_restart(dwc);
+-	else
++	} else {
+ 		dwc3_gadget_giveback(ep0, r, 0);
++	}
+ }
+ 
+ static void dwc3_ep0_complete_status(struct dwc3 *dwc,
+@@ -1198,6 +1243,13 @@ void dwc3_ep0_interrupt(struct dwc3 *dwc,
+ 	struct dwc3_ep	*dep = dwc->eps[event->endpoint_number];
+ 	u8		cmd;
+ 
++	dev_err(dwc->dev,
++		"ep0 event: raw=0x%08x ep=%u evt=%u status=%u param=0x%x state=%u next=%u flags=0x%x res=%u\n",
++		*(const u32 *)event, event->endpoint_number,
++		event->endpoint_event, event->status, event->parameters,
++		dwc->ep0state, dwc->ep0_next_event, dep->flags,
++		dep->resource_index);
++
+ 	switch (event->endpoint_event) {
+ 	case DWC3_DEPEVT_XFERCOMPLETE:
+ 		dwc3_ep0_xfer_complete(dwc, event);
+diff --git a/kernel-5.10/drivers/usb/dwc3/gadget.c b/kernel-5.10/drivers/usb/dwc3/gadget.c
+index 914d170d25515dfed47db135a9a1a3f134f655b9..7d38e01dde3d598f978f08b4f88edaef246b0c6f 100644
+--- a/kernel-5.10/drivers/usb/dwc3/gadget.c
++++ b/kernel-5.10/drivers/usb/dwc3/gadget.c
+@@ -180,6 +180,7 @@ static void dwc3_gadget_del_and_unmap_request(struct dwc3_ep *dep,
+ 	list_del(&req->list);
+ 	req->remaining = 0;
+ 	req->needs_extra_trb = false;
++	req->num_trbs = 0;
+ 
+ 	if (req->request.status == -EINPROGRESS)
+ 		req->request.status = status;
+@@ -210,6 +211,13 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
+ {
+ 	struct dwc3			*dwc = dep->dwc;
+ 
++	/*
++	 * The request might have been processed and completed while the
++	 * spinlock was released. Skip processing if already completed.
++	 */
++	if (req->status == DWC3_REQUEST_STATUS_COMPLETED)
++		return;
++
+ 	dwc3_gadget_del_and_unmap_request(dep, req, status);
+ 	req->status = DWC3_REQUEST_STATUS_COMPLETED;
+ 
+@@ -291,7 +299,8 @@ int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned int cmd,
+ 	 *
+ 	 * DWC_usb3 3.30a and DWC_usb31 1.90a programming guide section 3.2.2
+ 	 */
+-	if (dwc->gadget->speed <= USB_SPEED_HIGH) {
++	if (dwc->gadget->speed <= USB_SPEED_HIGH ||
++	    DWC3_DEPCMD_CMD(cmd) == DWC3_DEPCMD_ENDTRANSFER) {
+ 		reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
+ 		if (unlikely(reg & DWC3_GUSB2PHYCFG_SUSPHY)) {
+ 			saved_config |= DWC3_GUSB2PHYCFG_SUSPHY;
+@@ -409,6 +418,10 @@ int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned int cmd,
+ skip_status:
+ 	trace_dwc3_gadget_ep_cmd(dep, cmd, params, cmd_status);
+ 
++	if (ret)
++		dev_err(dwc->dev, "depcmd fail: %s cmd=0x%x ret=%d\n",
++			dep->name, DWC3_DEPCMD_CMD(cmd), ret);
++
+ 	if (DWC3_DEPCMD_CMD(cmd) == DWC3_DEPCMD_STARTTRANSFER) {
+ 		if (ret == 0)
+ 			dep->flags |= DWC3_EP_TRANSFER_STARTED;
+@@ -1813,6 +1826,7 @@ static int __dwc3_gadget_get_frame(struct dwc3 *dwc)
+  */
+ static int __dwc3_stop_active_transfer(struct dwc3_ep *dep, bool force, bool interrupt)
+ {
++	struct dwc3 *dwc = dep->dwc;
+ 	struct dwc3_gadget_ep_cmd_params params;
+ 	u32 cmd;
+ 	int ret;
+@@ -1836,10 +1850,13 @@ static int __dwc3_stop_active_transfer(struct dwc3_ep *dep, bool force, bool int
+ 	WARN_ON_ONCE(ret);
+ 	dep->resource_index = 0;
+ 
+-	if (!interrupt)
++	if (!interrupt) {
++		if (!DWC3_IP_IS(DWC3) || DWC3_VER_IS_PRIOR(DWC3, 310A))
++			mdelay(1);
+ 		dep->flags &= ~DWC3_EP_TRANSFER_STARTED;
+-	else
++	} else {
+ 		dep->flags |= DWC3_EP_END_TRANSFER_PENDING;
++	}
+ 
+ 	return ret;
+ }
+@@ -2258,11 +2275,13 @@ int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol)
+ 
+ 		ret = dwc3_send_gadget_ep_cmd(dep, DWC3_DEPCMD_SETSTALL,
+ 				&params);
+-		if (ret)
++		if (ret) {
+ 			dev_err(dwc->dev, "failed to set STALL on %s\n",
+ 					dep->name);
+-		else
++			dump_stack();
++		} else {
+ 			dep->flags |= DWC3_EP_STALL;
++		}
+ 	} else {
+ 		/*
+ 		 * Don't issue CLEAR_STALL command to control endpoints. The
+@@ -2626,6 +2645,10 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
+ 	if (!timeout)
+ 		return -ETIMEDOUT;
+ 
++	/* Dump from the actual gadget pull-up path, including OTG boards. */
++	if (is_on)
++		x7_regdump_start(dwc);
++
+ 	return 0;
+ }
+ 
+@@ -3711,6 +3734,15 @@ static void dwc3_gadget_endpoint_transfer_complete(struct dwc3_ep *dep,
+ static void dwc3_gadget_endpoint_transfer_not_ready(struct dwc3_ep *dep,
+ 		const struct dwc3_event_depevt *event)
+ {
++	/*
++	 * During a device-initiated disconnect, a late xferNotReady event can
++	 * be generated after the End Transfer command resets the event filter,
++	 * but before the controller is halted. Ignore it to prevent a new
++	 * transfer from starting.
++	 */
++	if (!dep->dwc->connected)
++		return;
++
+ 	dwc3_gadget_endpoint_frame_from_event(dep, event);
+ 
+ 	/*
+diff --git a/kernel-5.10/drivers/usb/dwc3/trace.h b/kernel-5.10/drivers/usb/dwc3/trace.h
+index 97f4f1125a416315da9951bdde697ee9ab8abcd0..2c42a75f209f6dddc81c99e1ae2123cbf078b41d 100644
+--- a/kernel-5.10/drivers/usb/dwc3/trace.h
++++ b/kernel-5.10/drivers/usb/dwc3/trace.h
+@@ -347,3 +347,41 @@ DEFINE_EVENT(dwc3_log_ep, dwc3_gadget_ep_disable,
+ #define TRACE_INCLUDE_FILE trace
+ 
+ #include <trace/define_trace.h>
++
++/*
++ * Keep DWC3's timing-critical command/event paths identical to the validated
++ * RK3562 dictionary-pen build while retaining tracepoint definitions for the
++ * rest of the Android kernel.
++ */
++#if defined(CONFIG_X7PRO_TP_REPORT_COMPAT) && !defined(CREATE_TRACE_POINTS)
++#undef trace_dwc3_readl
++#undef trace_dwc3_writel
++#undef trace_dwc3_event
++#undef trace_dwc3_ctrl_req
++#undef trace_dwc3_prepare_trb
++#undef trace_dwc3_complete_trb
++#undef trace_dwc3_gadget_giveback
++#undef trace_dwc3_gadget_generic_cmd
++#undef trace_dwc3_gadget_ep_cmd
++#undef trace_dwc3_gadget_ep_enable
++#undef trace_dwc3_gadget_ep_disable
++#undef trace_dwc3_alloc_request
++#undef trace_dwc3_free_request
++#undef trace_dwc3_ep_queue
++#undef trace_dwc3_ep_dequeue
++#define trace_dwc3_readl(...) do { } while (0)
++#define trace_dwc3_writel(...) do { } while (0)
++#define trace_dwc3_event(...) do { } while (0)
++#define trace_dwc3_ctrl_req(...) do { } while (0)
++#define trace_dwc3_prepare_trb(...) do { } while (0)
++#define trace_dwc3_complete_trb(...) do { } while (0)
++#define trace_dwc3_gadget_giveback(...) do { } while (0)
++#define trace_dwc3_gadget_generic_cmd(...) do { } while (0)
++#define trace_dwc3_gadget_ep_cmd(...) do { } while (0)
++#define trace_dwc3_gadget_ep_enable(...) do { } while (0)
++#define trace_dwc3_gadget_ep_disable(...) do { } while (0)
++#define trace_dwc3_alloc_request(...) do { } while (0)
++#define trace_dwc3_free_request(...) do { } while (0)
++#define trace_dwc3_ep_queue(...) do { } while (0)
++#define trace_dwc3_ep_dequeue(...) do { } while (0)
++#endif
+diff --git a/kernel-5.10/drivers/usb/dwc3/x7regdump.c b/kernel-5.10/drivers/usb/dwc3/x7regdump.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..98df62b05488208e030e85773f4871681a455319
+--- /dev/null
++++ b/kernel-5.10/drivers/usb/dwc3/x7regdump.c
+@@ -0,0 +1,65 @@
++// SPDX-License-Identifier: GPL-2.0
++/* X7 Pro dwc3 register dumper: prints registers via the driver's own mapping */
++#include <linux/module.h>
++#include <linux/io.h>
++#include <linux/workqueue.h>
++#include "core.h"
++#include "io.h"
++
++static struct delayed_work x7_dwork;
++static struct dwc3 *x7_dwc_inst;
++static int x7_dump_count;
++
++static void x7_dump32(struct dwc3 *dwc, const char *name, u32 off)
++{
++	pr_err("REGDUMP %s = 0x%08x\n", name, dwc3_readl(dwc->regs, off));
++}
++
++static void x7_do_dump(struct work_struct *w)
++{
++	struct dwc3 *dwc = x7_dwc_inst;
++	struct dwc3_ep *ep0out;
++	struct dwc3_ep *ep0in;
++	struct dwc3_trb *trb0;
++	struct dwc3_trb *trb1;
++
++	if (!dwc)
++		return;
++	ep0out = dwc->eps[0];
++	ep0in = dwc->eps[1];
++	trb0 = &dwc->ep0_trb[0];
++	trb1 = &dwc->ep0_trb[1];
++	pr_err("REGDUMP === pass %d ===\n", x7_dump_count);
++	x7_dump32(dwc, "DCFG", DWC3_DCFG);
++	x7_dump32(dwc, "DCTL", DWC3_DCTL);
++	x7_dump32(dwc, "DSTS", DWC3_DSTS);
++	x7_dump32(dwc, "GUSB2PHYCFG(0)", DWC3_GUSB2PHYCFG(0));
++	x7_dump32(dwc, "GTXFIFOSIZ(0)", DWC3_GTXFIFOSIZ(0));
++	x7_dump32(dwc, "GRXFIFOSIZ(0)", DWC3_GRXFIFOSIZ(0));
++	x7_dump32(dwc, "GCTL", DWC3_GCTL);
++	x7_dump32(dwc, "GTXTHRCFG", DWC3_GTXTHRCFG);
++	x7_dump32(dwc, "GRXTHRCFG", DWC3_GRXTHRCFG);
++	x7_dump32(dwc, "GEVNTCOUNT(0)", DWC3_GEVNTCOUNT(0));
++	pr_err("REGDUMP EP0 state=%u next=%u pending=%u connected=%u delayed=%u out_flags=0x%x out_res=%u out_enq=%u in_flags=0x%x in_res=%u in_enq=%u\n",
++		dwc->ep0state, dwc->ep0_next_event,
++		dwc->setup_packet_pending, dwc->connected, dwc->delayed_status,
++		ep0out->flags, ep0out->resource_index, ep0out->trb_enqueue,
++		ep0in->flags, ep0in->resource_index, ep0in->trb_enqueue);
++	pr_err("REGDUMP EP0TRB0 bpl=%08x bph=%08x size=%08x ctrl=%08x EP0TRB1 bpl=%08x bph=%08x size=%08x ctrl=%08x\n",
++		trb0->bpl, trb0->bph, trb0->size, trb0->ctrl,
++		trb1->bpl, trb1->bph, trb1->size, trb1->ctrl);
++	if (++x7_dump_count < 8)
++		schedule_delayed_work(&x7_dwork, 10 * HZ);
++}
++
++void x7_regdump_start(struct dwc3 *dwc)
++{
++	/* Pull-up can be toggled more than once; one trace per boot is enough. */
++	if (x7_dwc_inst)
++		return;
++
++	x7_dwc_inst = dwc;
++	INIT_DELAYED_WORK(&x7_dwork, x7_do_dump);
++	schedule_delayed_work(&x7_dwork, 2 * HZ);
++}
++EXPORT_SYMBOL_GPL(x7_regdump_start);
+diff --git a/kernel-5.10/drivers/usb/typec/Kconfig b/kernel-5.10/drivers/usb/typec/Kconfig
+index 0d953c6805f0fc610c3a3655d7c28546512b5f18..1973c3706571e6030484695369a58c112939df36 100644
+--- a/kernel-5.10/drivers/usb/typec/Kconfig
++++ b/kernel-5.10/drivers/usb/typec/Kconfig
+@@ -85,6 +85,15 @@ config TYPEC_STUSB160X
+ 	  If you choose to build this driver as a dynamically linked module, the
+ 	  module will be called stusb160x.ko.
+ 
++config TYPEC_AW35616
++	tristate "Awinic AW35616 Type-C CC controller"
++	depends on I2C
++	depends on USB_ROLE_SWITCH
++	help
++	  Enable support for the Awinic AW35616 Type-C configuration-channel
++	  controller. It reports cable attachment and selects the USB host or
++	  device role through the USB role-switch framework.
++
+ config TYPEC_QCOM_PMIC
+ 	tristate "Qualcomm PMIC USB Type-C driver"
+ 	depends on ARCH_QCOM || COMPILE_TEST
+diff --git a/kernel-5.10/drivers/usb/typec/Makefile b/kernel-5.10/drivers/usb/typec/Makefile
+index d03b48c4b864ff330edbe628d340424d07713e18..5e64e909d54bc89b961b916b87fdf39c66d4d62f 100644
+--- a/kernel-5.10/drivers/usb/typec/Makefile
++++ b/kernel-5.10/drivers/usb/typec/Makefile
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0
+ obj-$(CONFIG_TYPEC)		+= typec.o
+ typec-y				:= class.o mux.o bus.o
++typec-$(CONFIG_TYPEC_AW35616)	+= typec_aw35616.o
+ obj-$(CONFIG_TYPEC)		+= altmodes/
+ obj-$(CONFIG_TYPEC_TCPM)	+= tcpm/
+ obj-$(CONFIG_TYPEC_UCSI)	+= ucsi/
+diff --git a/kernel-5.10/drivers/usb/typec/typec_aw35616.c b/kernel-5.10/drivers/usb/typec/typec_aw35616.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..03075ab5a5c50ac70d1d3463d2f47432ec75aa80
+--- /dev/null
++++ b/kernel-5.10/drivers/usb/typec/typec_aw35616.c
+@@ -0,0 +1,870 @@
++// SPDX-License-Identifier: GPL-2.0
++/*******************************************************************************
++ **** Copyright (C), 2022, Shanghai awinic technology Co.,Ltd.
++												all rights reserved. ***********
++ *******************************************************************************
++ * File Name     : tcpc_aw35616.c
++ * Author        : awinic
++ * Date          : 2022-12-16
++ * Description   : .C file function description
++ * Version       : 1.0
++ * Function List :
++ ******************************************************************************/
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/device.h>
++#include <linux/slab.h>
++#include <linux/i2c.h>
++#include <linux/of_gpio.h>
++#include <linux/gpio.h>
++#include <linux/delay.h>
++#include <linux/interrupt.h>
++#include <linux/semaphore.h>
++#include <linux/pm_runtime.h>
++#include <linux/workqueue.h>
++#include <linux/kthread.h>
++#include <linux/cpu.h>
++#include <linux/version.h>
++#include <linux/pm_wakeup.h>
++#include <linux/sched/clock.h>
++#include <linux/sched/types.h>
++#include <linux/kernel.h>
++#include <linux/compiler.h>
++#include <linux/mutex.h>
++#include <linux/atomic.h>
++#include <linux/hrtimer.h>
++#include <linux/sched/rt.h>
++#include <uapi/linux/sched/types.h>
++#include <linux/usb/typec.h>
++#include <linux/usb/role.h>
++#include <linux/regulator/consumer.h>
++
++#include "typec_aw35616.h"
++
++#define AW35616_DRIVER_VERSION	"V0.1.0"
++
++#define AW35616_IRQ_WAKE_TIME	(1000) /* ms */
++
++const unsigned char aw35616_reg_access[AW35616_REG_MAX] = {
++	[AW35616_REG_DEV_ID] = REG_RD_ACCESS,
++	[AW35616_REG_CTR] = REG_RD_ACCESS|REG_WR_ACCESS,
++	[AW35616_REG_INT] = REG_RD_ACCESS,
++	[AW35616_REG_STATUS] = REG_RD_ACCESS,
++	[AW35616_REG_STATUS1] = REG_RD_ACCESS,
++	[AW35616_REG_RSTN] = REG_WR_ACCESS,
++	[AW35616_REG_USB_VID0] = REG_RD_ACCESS,
++	[AW35616_REG_USB_VID1] = REG_RD_ACCESS,
++	[AW35616_REG_CTR2] = REG_RD_ACCESS|REG_WR_ACCESS
++};
++
++/******************************************************
++ *
++ * aw35616 i2c write/read
++ *
++ ******************************************************/
++static int aw35616_i2c_write(struct aw35616_chip *chip,
++		u8 reg_addr, u8 reg_data)
++{
++	int ret = -1;
++	unsigned char cnt = 0;
++
++	__pm_stay_awake(chip->for_i2c_wake_lock);
++
++	while (cnt++ < AW35616_I2C_RETRIES) {
++		ret = i2c_smbus_write_byte_data(chip->client, reg_addr, reg_data);
++		if (ret < 0) {
++			pr_err("%s: i2c_write cnt=%d error=%d\n", __func__,
++					cnt, ret);
++		} else {
++			break;
++		}
++		usleep_range(1000, 2000);
++	}
++
++	__pm_relax(chip->for_i2c_wake_lock);
++
++	return ret;
++}
++
++static int aw35616_i2c_read(struct aw35616_chip *chip,
++		u8 reg_addr, u8 *reg_data)
++{
++	int ret = -1;
++	unsigned char cnt = 0;
++
++	__pm_stay_awake(chip->for_i2c_wake_lock);
++
++	while (cnt++ < AW35616_I2C_RETRIES) {
++		ret = i2c_smbus_read_byte_data(chip->client, reg_addr);
++		if (ret < 0) {
++			pr_err("%s: i2c_read cnt=%d error=%d\n", __func__,
++					cnt, ret);
++		} else {
++			*reg_data = ret;
++			break;
++		}
++		usleep_range(1000, 2000);
++	}
++
++	__pm_relax(chip->for_i2c_wake_lock);
++
++	return ret;
++}
++
++static int aw35616_i2c_read_bits(struct aw35616_chip *chip,
++		u8 reg_addr, u8 *buf, u8 len)
++{
++	int ret = 0;
++	unsigned char *rdbuf = NULL;
++	unsigned char cnt = 0;
++	struct i2c_msg msgs[] = {
++		{
++			.addr	 = chip->client->addr,
++			.flags  = 0,
++			.len	 = 1,
++			.buf	 = &reg_addr,
++		},
++		{
++			.addr	 = chip->client->addr,
++			.flags  = I2C_M_RD,
++			.len	 = len,
++		},
++	};
++
++	__pm_stay_awake(chip->for_i2c_wake_lock);
++
++	if (chip->client == NULL) {
++		pr_err("msg %s i2c client is NULL\n", __func__);
++		return -ENODEV;
++	}
++
++	rdbuf = kmalloc(len, GFP_KERNEL);
++	if (rdbuf == NULL)
++		return -ENOMEM;
++
++	msgs[1].buf = rdbuf;
++
++	while (cnt < AW35616_I2C_RETRIES) {
++		ret = i2c_transfer(chip->client->adapter, msgs, ARRAY_SIZE(msgs));
++		if (ret < 0)
++			pr_err("msg %s i2c read error: %d\n", __func__, ret);
++		else
++			break;
++		cnt++;
++		usleep_range(1000, 2000);
++	}
++
++	if (buf != NULL)
++		memcpy(buf, rdbuf, len);
++
++	kfree(rdbuf);
++
++	__pm_relax(chip->for_i2c_wake_lock);
++
++	return ret;
++}
++
++static void aw35616_set_vbus(bool on)
++{
++	if (on) {
++		//regulator_enable(gol_chip->vbus);
++		AW_LOG("enable vbus for otg mode\n");
++	} else {
++		//regulator_disable(gol_chip->vbus);
++		AW_LOG("disable vbus\n");
++	}
++}
++
++static int aw35616_tcpc_init(struct aw35616_chip *chip)
++{
++	AW_LOG("enter\n");
++
++		/* set toggle cycle time */
++	chip->reg.ctr2.tog_save_md = chip->toggle_cycle;
++	aw35616_i2c_write(chip, AW35616_REG_CTR2, chip->reg.ctr2.byte);
++
++	/* set power role mode */
++	switch (chip->role_def) {
++	case 1: /* set only sink */
++		chip->reg.ctr.wkmd = SNK;
++		chip->reg.ctr.try_md = NO_TRY;
++		break;
++	case 2: /* set only source */
++		chip->reg.ctr.wkmd = SRC;
++		chip->reg.ctr.try_md = NO_TRY;
++		break;
++	case 3: /* set only drp */
++		chip->reg.ctr.wkmd = DRP;
++		chip->reg.ctr.try_md = NO_TRY;
++		break;
++	case 4: /* set try src */
++		chip->reg.ctr.wkmd = DRP;
++		chip->reg.ctr.try_md = TRY_SRC;
++		break;
++	case 5: /* set try snk */
++		chip->reg.ctr.wkmd = DRP;
++		chip->reg.ctr.try_md = TRY_SNK;
++		break;
++	default:
++		break;
++	}
++
++	/* set source current */
++	chip->reg.ctr.src_cur_md = chip->rp_lvl;
++
++	/* set acc mode */
++	chip->reg.ctr.accdis = chip->acc_support;
++	aw35616_i2c_write(chip, AW35616_REG_CTR, chip->reg.ctr.byte);
++	aw35616_i2c_write(chip, AW35616_reg_val1, AW35616_reg_val2);
++	aw35616_i2c_write(chip, AW35616_reg_val3, AW35616_reg_val4);
++	aw35616_i2c_write(chip, AW35616_reg_val1, AW35616_reg_val5);
++
++	/* The first detection interrupt can be completed. delay 150ms */
++	msleep(150);
++
++	schedule_delayed_work(&chip->first_check_typec_work, msecs_to_jiffies(5000));
++
++	return 0;
++}
++
++static int first_check_flag;
++static void aw35616_irq_work_handler(struct kthread_work *work)
++{
++	struct aw35616_chip *chip = container_of(work,
++			struct aw35616_chip, irq_work);
++	int i;
++	u8 reg_data[4];
++
++	if (first_check_flag == 0)
++		return;
++
++	/* get interrupt */
++	aw35616_i2c_read(chip, AW35616_REG_INT, &chip->reg.ints.byte);
++	AW_LOG("int_sts[0x%02x]\n", chip->reg.ints.byte);
++	if (chip->reg.ints.intb_flag == NO_INTB) {
++		aw35616_i2c_read_bits(chip, AW35616_REG_CTR, reg_data, 4);
++		for (i = 1; i < 5; i++)
++			AW_LOG("reg:0x%02x=0x%02x\n", i, reg_data[i - 1]);
++
++		return;
++	}
++
++	if (chip->reg.ints.intb_flag == ATTACHED) {
++		aw35616_i2c_read_bits(chip, AW35616_REG_STATUS, chip->reg.status.byte, 2);
++		AW_LOG("plug_st = %d snk_det_rp_dbg = %d\n",
++				chip->reg.status.plug_st, chip->reg.status.snk_det_rp_dbg);
++		switch (chip->reg.status.plug_st) {
++		case STANDBY:
++			AW_LOG("plug status not connected\n");
++			break;
++		case SINK:
++			AW_LOG("plug int SINK\n");
++			aw35616_set_vbus(true);
++			usb_role_switch_set_role(chip->role_sw, USB_ROLE_HOST);
++			typec_set_data_role(chip->port, TYPEC_HOST);
++			break;
++		case SOURCE:
++			AW_LOG("plug int SOURCE\n");
++			usb_role_switch_set_role(chip->role_sw, USB_ROLE_DEVICE);
++			typec_set_data_role(chip->port, TYPEC_DEVICE);
++			break;
++		case AUD_ACC:
++			break;
++		case DUG_ACC:
++			if (chip->reg.status.snk_det_rp_dbg) {
++				AW_LOG("plug int Rp-Rp\n");
++				usb_role_switch_set_role(chip->role_sw, USB_ROLE_DEVICE);
++				typec_set_data_role(chip->port, TYPEC_DEVICE);
++			} else {
++				AW_LOG("plug int Rd-Rd\n");
++				aw35616_set_vbus(true);
++				usb_role_switch_set_role(chip->role_sw, USB_ROLE_HOST);
++				typec_set_data_role(chip->port, TYPEC_HOST);
++			}
++			break;
++		default:
++			AW_LOG("plug status unknown = %d\n", chip->reg.status.plug_st);
++			break;
++		}
++	} else if (chip->reg.ints.intb_flag == DETACHED) {
++		if ((chip->reg.status.plug_st == SINK) ||
++			((chip->reg.status.plug_st == DUG_ACC) && (!chip->reg.status.snk_det_rp_dbg))) {
++			AW_LOG("plug out SINK\n");
++			aw35616_set_vbus(false);
++			usb_role_switch_set_role(chip->role_sw, USB_ROLE_NONE);
++		} else if ((chip->reg.status.plug_st == SOURCE) ||
++			((chip->reg.status.plug_st == DUG_ACC) && (chip->reg.status.snk_det_rp_dbg))) {
++			AW_LOG("plug out SOURCE\n");
++			usb_role_switch_set_role(chip->role_sw, USB_ROLE_NONE);
++		} else if (chip->reg.status.plug_st == AUD_ACC) {
++			AW_LOG("plug out aud acc\n");
++		} else {
++			AW_LOG("unknown plug out\n");
++		}
++	}
++}
++
++static irqreturn_t aw35616_intr_handler(int irq, void *data)
++{
++	struct aw35616_chip *chip = data;
++
++	__pm_wakeup_event(chip->for_irq_wake_lock, AW35616_IRQ_WAKE_TIME);
++
++	kthread_queue_work(&chip->irq_worker, &chip->irq_work);
++	return IRQ_HANDLED;
++}
++
++static int aw35616_init_alert(struct aw35616_chip *chip)
++{
++	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
++	int ret;
++
++	if (chip->client->irq) {
++		chip->irq = chip->client->irq;
++	} else {
++		ret = devm_gpio_request(chip->dev, chip->irq_gpio, "aw35616,irq-gpio");
++		if (ret < 0) {
++			pr_err("Error: failed to request GPIO%d (ret = %d)\n", chip->irq_gpio, ret);
++			goto init_alert_err;
++		}
++		AW_LOG("gpio = %d\n", chip->irq_gpio);
++
++		ret = gpio_direction_input(chip->irq_gpio);
++		if (ret < 0) {
++			pr_err("Error: failed to set GPIO%d as input pin(ret = %d)\n", chip->irq_gpio, ret);
++			goto init_alert_err;
++		}
++
++		chip->irq = gpio_to_irq(chip->irq_gpio);
++		if (chip->irq <= 0) {
++			pr_err("%s gpio to irq fail, chip->irq(%d)\n", __func__, chip->irq);
++			goto init_alert_err;
++		}
++	}
++
++	AW_LOG("IRQ number = %d\n", chip->irq);
++
++	kthread_init_worker(&chip->irq_worker);
++	chip->irq_worker_task = kthread_run(kthread_worker_fn, &chip->irq_worker, "aw35616_worker");
++	if (IS_ERR(chip->irq_worker_task)) {
++		pr_err("Error: Could not create tcpc task\n");
++		goto init_alert_err;
++	}
++
++	sched_setscheduler(chip->irq_worker_task, SCHED_FIFO, &param);
++	kthread_init_work(&chip->irq_work, aw35616_irq_work_handler);
++
++	ret = request_irq(chip->irq, aw35616_intr_handler,
++			IRQF_TRIGGER_FALLING | IRQF_NO_THREAD |
++			IRQF_NO_SUSPEND, "awinic,int_n", chip);
++	if (ret < 0) {
++		pr_err("Error: failed to request irq%d (gpio = %d, ret = %d)\n",
++			chip->irq, chip->irq_gpio, ret);
++		goto init_alert_err;
++	}
++
++	enable_irq_wake(chip->irq);
++	return 0;
++
++init_alert_err:
++	return -EINVAL;
++}
++
++static int aw35616_parse_dt(struct aw35616_chip *chip, struct device *dev)
++{
++	struct device_node *np = dev->of_node;
++	u32 val;
++
++	if (!np)
++		return -EINVAL;
++
++	AW_LOG("enter\n");
++
++	if (of_property_read_u32(np, "aw35616-tcpc,role_def", &val) >= 0) {
++		chip->role_def = val;
++		AW_LOG("aw35616_role_def = %d\n", chip->role_def);
++	} else {
++		dev_err(chip->dev, "use default Role DRP\n");
++		chip->role_def = 3;
++	}
++
++	if (of_property_read_u32(np, "aw35616,rp_level", &val) >= 0) {
++		switch (val) {
++		case 0: /* RP Default */
++			chip->rp_lvl = SRC_DEF;
++			break;
++		case 1: /* RP 1.5V */
++			chip->rp_lvl = SRC_1_5A;
++			break;
++		case 2: /* RP 3.0V */
++			chip->rp_lvl = SRC_3_0A;
++			break;
++		default:
++			break;
++		}
++		AW_LOG("aw35616_rp_level = %d\n", chip->rp_lvl);
++	} else {
++		dev_err(chip->dev, "use default Rp lvl\n");
++		chip->rp_lvl = SRC_DEF;
++	}
++
++	if (of_property_read_u32(np, "aw35616_acc_support", &val) >= 0) {
++		chip->acc_support = (bool)val;
++		AW_LOG("aw35616_acc_support = %d\n", chip->acc_support);
++	} else {
++		dev_err(chip->dev, "use default val\n");
++		chip->acc_support = 0;
++	}
++
++	if (of_property_read_u32(np, "aw35616_toggle_cycle", &val) >= 0) {
++		chip->toggle_cycle = (uint8_t)val;
++		AW_LOG("aw35616_toggle_cycle = %d\n", chip->toggle_cycle);
++	} else {
++		dev_err(chip->dev, "use default val\n");
++		chip->toggle_cycle = 0;
++	}
++
++	return 0;
++}
++
++static void aw35616_first_check_typec_work(struct work_struct *work)
++{
++	struct aw35616_chip *chip = container_of(work,
++			struct aw35616_chip, first_check_typec_work.work);
++	int i;
++	u8 reg_data[4];
++
++	first_check_flag = 1;
++	/* get interrupt */
++	aw35616_i2c_read(chip, AW35616_REG_INT, &chip->reg.ints.byte);
++	AW_LOG("int_sts[0x%02x]\n", chip->reg.ints.byte);
++	if (chip->reg.ints.intb_flag == NO_INTB) {
++		aw35616_i2c_read_bits(chip, AW35616_REG_CTR, reg_data, 4);
++		for (i = 1; i < 5; i++)
++			AW_LOG("reg:0x%02x=0x%02x\n", i, reg_data[i - 1]);
++
++		return;
++	}
++
++	if (chip->reg.ints.intb_flag == ATTACHED) {
++		aw35616_i2c_read_bits(chip, AW35616_REG_STATUS, chip->reg.status.byte, 2);
++		AW_LOG("plug_st = %d snk_det_rp_dbg = %d\n",
++				chip->reg.status.plug_st, chip->reg.status.snk_det_rp_dbg);
++		switch (chip->reg.status.plug_st) {
++		case STANDBY:
++			AW_LOG("plug status not connected\n");
++			break;
++		case SINK:
++			AW_LOG("plug int SINK\n");
++			aw35616_set_vbus(true);
++			usb_role_switch_set_role(chip->role_sw, USB_ROLE_HOST);
++			typec_set_data_role(chip->port, TYPEC_HOST);
++			break;
++		case SOURCE:
++			AW_LOG("plug int SOURCE\n");
++			usb_role_switch_set_role(chip->role_sw, USB_ROLE_DEVICE);
++			typec_set_data_role(chip->port, TYPEC_DEVICE);
++			break;
++		case AUD_ACC:
++			break;
++		case DUG_ACC:
++			if (chip->reg.status.snk_det_rp_dbg) {
++				AW_LOG("plug int Rp-Rp\n");
++				usb_role_switch_set_role(chip->role_sw, USB_ROLE_DEVICE);
++				typec_set_data_role(chip->port, TYPEC_DEVICE);
++			} else {
++				AW_LOG("plug int Rd-Rd\n");
++				aw35616_set_vbus(true);
++				usb_role_switch_set_role(chip->role_sw, USB_ROLE_HOST);
++				typec_set_data_role(chip->port, TYPEC_HOST);
++			}
++			break;
++		default:
++			AW_LOG("plug status unknown = %d\n", chip->reg.status.plug_st);
++			break;
++		}
++	} else if (chip->reg.ints.intb_flag == DETACHED) {
++		if ((chip->reg.status.plug_st == SINK) ||
++			((chip->reg.status.plug_st == DUG_ACC) && (!chip->reg.status.snk_det_rp_dbg))) {
++			AW_LOG("plug out SINK\n");
++			aw35616_set_vbus(false);
++			usb_role_switch_set_role(chip->role_sw, USB_ROLE_NONE);
++		} else if ((chip->reg.status.plug_st == SOURCE) ||
++			((chip->reg.status.plug_st == DUG_ACC) && (chip->reg.status.snk_det_rp_dbg))) {
++			AW_LOG("plug out SOURCE\n");
++			usb_role_switch_set_role(chip->role_sw, USB_ROLE_NONE);
++		} else if (chip->reg.status.plug_st == AUD_ACC) {
++			AW_LOG("plug out aud acc\n");
++		} else {
++			AW_LOG("unknown plug out\n");
++		}
++	}
++}
++
++static inline bool aw35616_check_revision(struct i2c_client *client)
++{
++	int rc = 0;
++	int i = 0;
++
++	for (i = 0; i <= AW35616_CHECK_RETEY; i++) {
++		/* Read chip id */
++		rc = i2c_smbus_read_byte_data(client, AW35616_REG_DEV_ID);
++		if (rc >= 0) {
++			if ((rc & 0x7) == AW35616_VENDOR_ID) {
++				AW_LOG("Device check passed chip id = 0x%x\n", rc);
++				return true;
++			}
++			AW_LOG("unexpected chip id = 0x%x\n", rc);
++			return false;
++		}
++
++		AW_LOG("ERROR: Could not communicate with device over i2c!\n");
++		usleep_range(1000, 2000);
++	}
++
++	return false;
++}
++
++static void aw35616_init_reg(struct aw35616_chip *chip)
++{
++	chip->reg.rstn.sft_rstn = 1;
++	aw35616_i2c_write(chip, AW35616_REG_RSTN, chip->reg.rstn.byte);
++	chip->reg.rstn.sft_rstn = 0;
++	/* Detect between gpio and i2c modes */
++	msleep(30);
++	aw35616_i2c_read(chip, AW35616_REG_DEV_ID, &chip->reg.dev_id.byte);
++	aw35616_i2c_read(chip, AW35616_REG_CTR, &chip->reg.ctr.byte);
++	aw35616_i2c_read_bits(chip, AW35616_REG_STATUS, chip->reg.status.byte, 2);
++	aw35616_i2c_read_bits(chip, AW35616_REG_USB_VID0, chip->reg.vid.byte, 2);
++	aw35616_i2c_read(chip, AW35616_REG_CTR2, &chip->reg.ctr2.byte);
++}
++
++static int aw35616_dr_set(struct typec_port *port, enum typec_data_role role)
++{
++	struct aw35616_chip *aw35616 = typec_get_drvdata(port);
++	enum usb_role role_val;
++	int ret = 0;
++
++	if (role == TYPEC_HOST)
++		role_val = USB_ROLE_HOST;
++	else
++		role_val = USB_ROLE_DEVICE;
++
++	usb_role_switch_set_role(aw35616->role_sw, role_val);
++	typec_set_data_role(aw35616->port, role);
++
++	return ret;
++}
++
++static const struct typec_operations aw35616_ops = {
++	.dr_set = aw35616_dr_set
++};
++
++/******************************************************
++ *
++ * sys group attribute: reg
++ *
++ ******************************************************/
++static ssize_t regdump_show(struct device *dev,
++		struct device_attribute *attr, char *buf)
++{
++	struct i2c_client *client = to_i2c_client(dev);
++	struct aw35616_chip *chip = i2c_get_clientdata(client);
++	ssize_t len = 0;
++	unsigned char i = 0;
++	unsigned char reg_val = 0;
++
++	for (i = 0; i < AW35616_REG_MAX; i++) {
++		if (!(aw35616_reg_access[i] & REG_RD_ACCESS))
++			continue;
++		aw35616_i2c_read(chip, i, &reg_val);
++		AW_LOG("i = %d reg_val = %x\n", i, reg_val);
++		len += snprintf(buf + len, PAGE_SIZE - len, "reg:0x%02x=0x%02x\n",
++				i, reg_val);
++	}
++
++	return len;
++}
++
++static ssize_t regdump_store(struct device *dev,
++		struct device_attribute *attr, const char *buf, size_t count)
++{
++	struct i2c_client *client = to_i2c_client(dev);
++	struct aw35616_chip *chip = i2c_get_clientdata(client);
++	u32 databuf[2] = {0, 0};
++
++	if (sscanf(buf, "%x %x", &databuf[0], &databuf[1]) == 2)
++		aw35616_i2c_write(chip, (u8)databuf[0], (u8)databuf[1]);
++
++	return count;
++}
++DEVICE_ATTR_RW(regdump);
++
++static ssize_t typec_polarity_show(struct device *dev,
++		struct device_attribute *attr, char *buf)
++{
++	struct i2c_client *client = to_i2c_client(dev);
++	struct aw35616_chip *chip = i2c_get_clientdata(client);
++
++	aw35616_i2c_read(chip, AW35616_REG_STATUS, &chip->reg.status.byte[0]);
++	AW_LOG("reg_val[0x04] = %x\n", chip->reg.status.byte[0]);
++
++	return sprintf(buf, "%s\n",
++			(chip->reg.status.plug_ori == CC1) ? "CC1" :
++			(chip->reg.status.plug_ori == CC2) ? "CC2" :
++			(chip->reg.status.plug_ori == CC1_CC2) ? "CC1&&CC2" : "None");
++}
++DEVICE_ATTR_RO(typec_polarity);
++
++static int aw35616_i2c_probe(struct i2c_client *client,
++		const struct i2c_device_id *id)
++{
++	struct aw35616_chip *chip;
++	struct typec_capability typec_cap = { };
++	struct fwnode_handle *connector, *ep;
++	int ret;
++	bool chip_ret;
++
++	AW_LOG("enter\n");
++	if (i2c_check_functionality(client->adapter,
++			I2C_FUNC_SMBUS_I2C_BLOCK | I2C_FUNC_SMBUS_BYTE_DATA))
++		AW_LOG("I2C functionality : OK...\n");
++	else
++		pr_err("I2C functionality check : failuare...\n");
++
++	chip_ret = aw35616_check_revision(client);
++	if (chip_ret == false) {
++		pr_err("aw35616 init fail\n");
++		return -ENODEV;
++	}
++
++	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
++	if (!chip)
++		return -ENOMEM;
++
++	chip->dev = &client->dev;
++	chip->client = client;
++	ret = aw35616_parse_dt(chip, &client->dev);
++	if (ret)
++		return ret;
++
++	sema_init(&chip->suspend_lock, 1);
++	i2c_set_clientdata(client, chip);
++
++	INIT_DELAYED_WORK(&chip->first_check_typec_work,
++			aw35616_first_check_typec_work);
++	chip->for_irq_wake_lock =
++		wakeup_source_register(chip->dev, "aw35616_irq_wakelock");
++	chip->for_i2c_wake_lock =
++		wakeup_source_register(chip->dev, "aw35616_i2c_wakelock");
++
++	aw35616_init_reg(chip);
++
++	/* For backward compatibility check the connector child node first */
++	connector = device_get_named_child_node(chip->dev, "connector");
++	if (connector) {
++		chip->role_sw = fwnode_usb_role_switch_get(connector);
++	} else {
++		ep = fwnode_graph_get_next_endpoint(dev_fwnode(chip->dev), NULL);
++		if (!ep)
++			return -ENODEV;
++		connector = fwnode_graph_get_remote_port_parent(ep);
++		fwnode_handle_put(ep);
++		if (!connector)
++			return -ENODEV;
++		chip->role_sw = usb_role_switch_get(chip->dev);
++	}
++
++	if (IS_ERR(chip->role_sw)) {
++		ret = PTR_ERR(chip->role_sw);
++		goto err_put_fwnode;
++	}
++
++	typec_cap.prefer_role = TYPEC_NO_PREFERRED_ROLE;
++	typec_cap.driver_data = chip;
++	typec_cap.type = TYPEC_PORT_DRP;
++	typec_cap.data = TYPEC_PORT_DRD;
++	typec_cap.ops = &aw35616_ops;
++	typec_cap.fwnode = connector;
++
++	chip->port = typec_register_port(&client->dev, &typec_cap);
++	if (IS_ERR(chip->port)) {
++		ret = PTR_ERR(chip->port);
++		goto err_put_role;
++	}
++
++	ret = aw35616_init_alert(chip);
++	if (ret < 0) {
++		pr_err("aw35616 init alert fail\n");
++		goto err_unreg_port;
++	}
++
++	ret = device_create_file(&client->dev, &dev_attr_regdump);
++	if (ret < 0) {
++		dev_err(&client->dev, "failed to create regdump\n");
++		ret = -ENODEV;
++		goto err_unreg_port;
++	}
++
++	ret = device_create_file(&client->dev, &dev_attr_typec_polarity);
++	if (ret < 0) {
++		dev_err(&client->dev, "failed to create typec_polarity\n");
++		ret = -ENODEV;
++		goto err_create_fregdump_file;
++	}
++
++	aw35616_tcpc_init(chip);
++
++	AW_LOG("probe OK!\n");
++	return 0;
++
++err_create_fregdump_file:
++	device_remove_file(&client->dev, &dev_attr_regdump);
++err_unreg_port:
++	typec_unregister_port(chip->port);
++err_put_role:
++	usb_role_switch_put(chip->role_sw);
++err_put_fwnode:
++	fwnode_handle_put(connector);
++	wakeup_source_unregister(chip->for_i2c_wake_lock);
++	wakeup_source_unregister(chip->for_irq_wake_lock);
++
++	return ret;
++}
++
++static int aw35616_i2c_remove(struct i2c_client *client)
++{
++	struct aw35616_chip *chip = i2c_get_clientdata(client);
++
++	if (chip) {
++		cancel_delayed_work_sync(&chip->first_check_typec_work);
++		typec_unregister_port(chip->port);
++		device_remove_file(&client->dev, &dev_attr_regdump);
++		device_remove_file(&client->dev, &dev_attr_typec_polarity);
++		wakeup_source_unregister(chip->for_i2c_wake_lock);
++		wakeup_source_unregister(chip->for_irq_wake_lock);
++	}
++
++	return 0;
++}
++
++#ifdef CONFIG_PM
++static int aw35616_i2c_suspend(struct device *dev)
++{
++	struct aw35616_chip *chip;
++	struct i2c_client *client = to_i2c_client(dev);
++
++	if (client) {
++		chip = i2c_get_clientdata(client);
++		if (chip)
++			down(&chip->suspend_lock);
++	}
++
++	return 0;
++}
++
++static int aw35616_i2c_resume(struct device *dev)
++{
++	struct aw35616_chip *chip;
++	struct i2c_client *client = to_i2c_client(dev);
++
++	if (client) {
++		chip = i2c_get_clientdata(client);
++		if (chip)
++			up(&chip->suspend_lock);
++	}
++
++	return 0;
++}
++
++static void aw35616_shutdown(struct i2c_client *client)
++{
++	struct aw35616_chip *chip = i2c_get_clientdata(client);
++
++	if (!chip)
++		return;
++
++	/* Please reset IC here */
++	chip->reg.rstn.sft_rstn = 0x1;
++	aw35616_i2c_write(chip, AW35616_REG_RSTN, chip->reg.rstn.byte);
++	if (chip->irq)
++		disable_irq(chip->irq);
++}
++
++#ifdef CONFIG_PM_RUNTIME
++static int aw35616_pm_suspend_runtime(struct device *device)
++{
++	AW_LOG("pm_runtime: suspending...\n");
++	return 0;
++}
++
++static int aw35616_pm_resume_runtime(struct device *device)
++{
++	AW_LOG("pm_runtime: resuming...\n");
++	return 0;
++}
++#endif /* CONFIG_PM_RUNTIME */
++
++
++static const struct dev_pm_ops aw35616_pm_ops = {
++	SET_SYSTEM_SLEEP_PM_OPS(
++			aw35616_i2c_suspend,
++			aw35616_i2c_resume)
++#ifdef CONFIG_PM_RUNTIME
++	SET_RUNTIME_PM_OPS(
++			aw35616_pm_suspend_runtime,
++			aw35616_pm_resume_runtime,
++			NULL
++	)
++#endif /* CONFIG_PM_RUNTIME */
++};
++
++#define aw35616_PM_OPS (&aw35616_pm_ops)
++#else
++#define aw35616_PM_OPS (NULL)
++#endif /* CONFIG_PM */
++
++static const struct i2c_device_id aw35616_id_table[] = {
++	{"aw35616", 0},
++	{},
++};
++MODULE_DEVICE_TABLE(i2c, aw35616_id_table);
++
++static const struct of_device_id aw35616_match_table[] = {
++	{.compatible = "awinic,usb_type_c_aw35616",},
++	{},
++};
++
++static struct i2c_driver aw35616_driver = {
++	.driver = {
++		.name = "usb_type_c_aw35616",
++		.owner = THIS_MODULE,
++		.of_match_table = aw35616_match_table,
++		.pm = aw35616_PM_OPS,
++	},
++	.probe = aw35616_i2c_probe,
++	.remove = aw35616_i2c_remove,
++	.shutdown = aw35616_shutdown,
++	.id_table = aw35616_id_table,
++};
++
++static int __init aw35616_init(void)
++{
++	AW_LOG("start driver init\n");
++	AW_LOG("aw35616 driver version %s\n", AW35616_DRIVER_VERSION);
++
++	return i2c_add_driver(&aw35616_driver);
++}
++subsys_initcall(aw35616_init);
++
++static void __exit aw35616_exit(void)
++{
++	i2c_del_driver(&aw35616_driver);
++}
++module_exit(aw35616_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("AWINIC");
++MODULE_DESCRIPTION("aw35616 TCPC Driver");
++MODULE_VERSION(AW35616_DRIVER_VERSION);
++
+diff --git a/kernel-5.10/drivers/usb/typec/typec_aw35616.h b/kernel-5.10/drivers/usb/typec/typec_aw35616.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..bef971d26563c44f9dce6e8c7630c52e60566ed9
+--- /dev/null
++++ b/kernel-5.10/drivers/usb/typec/typec_aw35616.h
+@@ -0,0 +1,255 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*******************************************************************************
++ **** Copyright (C), 2022, Shanghai awinic technology Co.,Ltd.
++												all rights reserved. ***********
++ *******************************************************************************
++ * File Name     : tcpc_aw35616.h
++ * Author        : awinic
++ * Date          : 2022-12-16
++ * Description   : .H file function description
++ * Version       : 1.0
++ * Function List :
++ ******************************************************************************/
++#ifndef __LINUX_AW35616_H
++#define __LINUX_AW35616_H
++
++/* AW35616 I2C Configuration */
++#define AW35616_I2C_RETRIES		(5)
++#define AW35616_CHECK_RETEY		(5)
++
++/* aw91xxx register read/write access */
++#define REG_NONE_ACCESS			(0)
++#define REG_RD_ACCESS			(1 << 0)
++#define REG_WR_ACCESS			(1 << 1)
++#define AW35616_REG_MAX			(0x23)
++
++/* AW35616 Register Addresses */
++#define AW35616_REG_DEV_ID		(0x01)
++#define AW35616_REG_CTR			(0x02)
++#define AW35616_REG_INT			(0x03)
++#define AW35616_REG_STATUS		(0x04)
++#define AW35616_REG_STATUS1		(0x05)
++#define AW35616_REG_RSTN		(0x06)
++#define AW35616_REG_USB_VID0	(0x07)
++#define AW35616_REG_USB_VID1	(0x08)
++#define AW35616_REG_CTR2		(0x22)
++
++/* AW35616 vendor id */
++#define AW35616_VENDOR_ID		(0x06)
++#define AW35616_reg_val1		(0xf9)
++#define AW35616_reg_val2		(0xc2)
++#define AW35616_reg_val3		(0x87)
++#define AW35616_reg_val4		(0x80)
++#define AW35616_reg_val5		(0x00)
++
++/**
++ * power role mode control
++ */
++typedef enum {
++	SNK       = 0,
++	SRC       = 1,
++	DRP       = 2,
++	WAKE_MODE = 3
++} WKMD;
++#define PR_MODE_SET				(WAKE_MODE)
++
++/**
++ * source current mode set
++ */
++typedef enum {
++	SRC_DEF    = 0,
++	SRC_1_5A   = 1,
++	SRC_3_0A   = 2,
++	OR_SRC_DEF = 3
++} SRC_CUR_MD;
++#define SRC_CUR_SET				(SRC_DEF)
++
++/**
++ * try src/snk mode set
++ */
++typedef enum {
++	NO_TRY    = 0,
++	TRY_SNK   = 1,
++	TRY_SRC   = 2,
++	OR_NO_TRY = 3
++} TRY_MD;
++#define TRY_MODE_SET			(TRY_SNK)
++
++/**
++ * accessory mode set
++ */
++#define ACC_MODE_SET			(1)
++
++/**
++ * Disable pull-up and pull-down after a toggle cycle
++ */
++typedef enum {
++	TOGGLE_CYCCLE_DEF   = 0,
++	TOGGLE_CYCCLE_40ms  = 1,
++	TOGGLE_CYCCLE_80ms  = 2,
++	TOGGLE_CYCCLE_160ms = 3
++} TOG_SAVE_MD;
++#define TOGGLE_CYCCLE_SET		(TOGGLE_CYCCLE_DEF)
++
++/**
++ * intb flag
++ */
++typedef enum {
++	NO_INTB   = 0,
++	ATTACHED  = 1,
++	DETACHED  = 2
++} INTB_FLAG;
++
++/**
++ * plag direction
++ */
++typedef enum {
++	STANDBY   = 0,
++	CC1       = 1,
++	CC2       = 2,
++	CC1_CC2   = 3
++} PLAG_ORI;
++
++/**
++ * plag status
++ */
++typedef enum {
++	SINK      = 1,
++	SOURCE    = 2,
++	AUD_ACC   = 3,
++	DUG_ACC   = 4
++} PLAG_ST;
++
++/**
++ * charging current detection as sink
++ */
++typedef enum {
++	SNK_DEF   = 1,
++	SNK_1_5A  = 2,
++	SNK_3_0A  = 3
++} SINK_CUR;
++
++/**
++ * vbus detection as sink
++ */
++typedef enum {
++	VBUS_DIS  = 0,
++	VBUS_OK   = 1
++} VBUS_ST;
++
++typedef union {
++	u8 byte;
++	struct {
++		u8 vd_id:3;
++		u8 ver_id:5;
++	};
++} reg_dev_id;
++
++typedef union {
++	u8 byte;
++	struct {
++		u8 intdis:1;
++		u8 wkmd:2;
++		u8 src_cur_md:2;
++		u8 try_md:2;
++		u8 accdis:1;
++	};
++} reg_ctr;
++
++typedef union {
++	u8 byte;
++	struct {
++		u8 intb_flag:2;
++		u8 wake_flag:1;
++		u8 reserved:5;
++	};
++} reg_ints;
++
++typedef union {
++	u8 byte[2];
++	struct {
++		/* status */
++		u8 plug_ori:2;
++		u8 plug_st:3;
++		u8 snk_cur_md:2;
++		u8 vbusok:1;
++		/* status1 */
++		u8 active_cable:1;
++		u8 wake_st:1;
++		u8 snk_det_rp_dbg:1;
++		u8 reserved:5;
++	};
++} reg_status;
++
++typedef union {
++	u8 byte;
++	struct {
++		u8 sft_rstn:1;
++		u8 typec_rstn:1;
++		u8 reserved:6;
++	};
++} reg_rstn;
++
++typedef union {
++	u8 byte[2];
++	struct {
++		/* vid0 */
++		u8 usb_vid_lsb:8;
++		/* vid1 */
++		u8 usb_vid_msb:8;
++	};
++} reg_vid;
++
++typedef union {
++	u8 byte;
++	struct {
++		u8 reserved:1;
++		u8 tog_save_md:2;
++		u8 reserved1:5;
++	};
++} reg_ctr2;
++
++typedef struct {
++	reg_dev_id dev_id;
++	reg_ctr    ctr;
++	reg_ints   ints;
++	reg_status status;
++	reg_rstn   rstn;
++	reg_vid    vid;
++	reg_ctr2   ctr2;
++} aw35616_reg;
++
++struct aw35616_chip {
++	struct i2c_client *client;
++	struct device *dev;
++	struct semaphore suspend_lock;
++	struct usb_role_switch *role_sw;
++	struct typec_port *port;
++	struct kthread_worker irq_worker;
++	struct kthread_work irq_work;
++	struct task_struct *irq_worker_task;
++	struct wakeup_source *for_irq_wake_lock;
++	struct wakeup_source *for_i2c_wake_lock;
++
++	struct delayed_work first_check_typec_work;
++
++	aw35616_reg reg;
++	uint8_t toggle_cycle;
++	uint8_t role_def;
++	uint8_t rp_lvl;
++	bool acc_support;
++
++	int irq_gpio;
++	int irq;
++};
++
++#define AWINIC_DEBUG
++#ifdef AWINIC_DEBUG
++#define AWINIC_LOG_NAME "AW35616"
++#define AW_LOG(format, arg...) pr_info("[%s] %s %d: " format, AWINIC_LOG_NAME, \
++		__func__, __LINE__, ##arg)
++#else
++#define AW_LOG(format, arg...)
++#endif
++
++#endif
+diff --git a/kernel-5.10/drivers/usb/typec/ucsi/ucsi.c b/kernel-5.10/drivers/usb/typec/ucsi/ucsi.c
+index f253310a92b40a1e944baee1a87bbb7da0554b6e..516d00affa82d31ab7b51067b550a1e87f88cefc 100644
+--- a/kernel-5.10/drivers/usb/typec/ucsi/ucsi.c
++++ b/kernel-5.10/drivers/usb/typec/ucsi/ucsi.c
+@@ -1061,6 +1061,15 @@ static int ucsi_register_port(struct ucsi *ucsi, int index)
+ 	con->num = index + 1;
+ 	con->ucsi = ucsi;
+ 
++	cap->fwnode = ucsi_find_fwnode(con);
++	con->usb_role_sw = fwnode_usb_role_switch_get(cap->fwnode);
++	if (IS_ERR(con->usb_role_sw)) {
++		dev_err(ucsi->dev, "con%d: failed to get usb role switch\n",
++			con->num);
++		return PTR_ERR(con->usb_role_sw);
++	}
++
++
+ 	/* Delay other interactions with the con until registration is complete */
+ 	mutex_lock(&con->lock);
+ 
+@@ -1096,7 +1105,6 @@ static int ucsi_register_port(struct ucsi *ucsi, int index)
+ 	if (con->cap.op_mode & UCSI_CONCAP_OPMODE_DEBUG_ACCESSORY)
+ 		*accessory = TYPEC_ACCESSORY_DEBUG;
+ 
+-	cap->fwnode = ucsi_find_fwnode(con);
+ 	cap->driver_data = con;
+ 	cap->ops = &ucsi_ops;
+ 
+@@ -1154,13 +1162,6 @@ static int ucsi_register_port(struct ucsi *ucsi, int index)
+ 		ucsi_port_psy_changed(con);
+ 	}
+ 
+-	con->usb_role_sw = fwnode_usb_role_switch_get(cap->fwnode);
+-	if (IS_ERR(con->usb_role_sw)) {
+-		dev_err(ucsi->dev, "con%d: failed to get usb role switch\n",
+-			con->num);
+-		con->usb_role_sw = NULL;
+-	}
+-
+ 	/* Only notify USB controller if partner supports USB data */
+ 	if (!(UCSI_CONSTAT_PARTNER_FLAGS(con->status.flags) & UCSI_CONSTAT_PARTNER_FLAG_USB))
+ 		u_role = USB_ROLE_NONE;
+@@ -1273,12 +1274,21 @@ static int ucsi_init(struct ucsi *ucsi)
+ 
+ static void ucsi_init_work(struct work_struct *work)
+ {
+-	struct ucsi *ucsi = container_of(work, struct ucsi, work);
++	struct ucsi_android *aucsi = container_of(work,
++				    struct ucsi_android, work.work);
+ 	int ret;
+ 
+-	ret = ucsi_init(ucsi);
++	ret = ucsi_init(&aucsi->ucsi);
+ 	if (ret)
+-		dev_err(ucsi->dev, "PPM init failed (%d)\n", ret);
++		dev_err(aucsi->ucsi.dev, "PPM init failed (%d)\n", ret);
++
++	if (ret == -EPROBE_DEFER) {
++		if (aucsi->work_count++ > UCSI_ROLE_SWITCH_WAIT_COUNT)
++			return;
++
++		queue_delayed_work(system_long_wq, &aucsi->work,
++				   UCSI_ROLE_SWITCH_INTERVAL);
++	}
+ }
+ 
+ /**
+@@ -1310,15 +1320,17 @@ EXPORT_SYMBOL_GPL(ucsi_set_drvdata);
+ struct ucsi *ucsi_create(struct device *dev, const struct ucsi_operations *ops)
+ {
+ 	struct ucsi *ucsi;
++	struct ucsi_android *aucsi;
+ 
+ 	if (!ops || !ops->read || !ops->sync_write || !ops->async_write)
+ 		return ERR_PTR(-EINVAL);
+ 
+-	ucsi = kzalloc(sizeof(*ucsi), GFP_KERNEL);
+-	if (!ucsi)
++	aucsi = kzalloc(sizeof(*aucsi), GFP_KERNEL);
++	if (!aucsi)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	INIT_WORK(&ucsi->work, ucsi_init_work);
++	ucsi = &aucsi->ucsi;
++	INIT_DELAYED_WORK(&aucsi->work, ucsi_init_work);
+ 	mutex_init(&ucsi->ppm_lock);
+ 	ucsi->dev = dev;
+ 	ucsi->ops = ops;
+@@ -1333,7 +1345,9 @@ EXPORT_SYMBOL_GPL(ucsi_create);
+  */
+ void ucsi_destroy(struct ucsi *ucsi)
+ {
+-	kfree(ucsi);
++	struct ucsi_android *aucsi = container_of(ucsi,
++				    struct ucsi_android, ucsi);
++	kfree(aucsi);
+ }
+ EXPORT_SYMBOL_GPL(ucsi_destroy);
+ 
+@@ -1343,6 +1357,8 @@ EXPORT_SYMBOL_GPL(ucsi_destroy);
+  */
+ int ucsi_register(struct ucsi *ucsi)
+ {
++	struct ucsi_android *aucsi = container_of(ucsi,
++				    struct ucsi_android, ucsi);
+ 	int ret;
+ 
+ 	ret = ucsi->ops->read(ucsi, UCSI_VERSION, &ucsi->version,
+@@ -1353,7 +1369,7 @@ int ucsi_register(struct ucsi *ucsi)
+ 	if (!ucsi->version)
+ 		return -ENODEV;
+ 
+-	queue_work(system_long_wq, &ucsi->work);
++	queue_delayed_work(system_long_wq, &aucsi->work, 0);
+ 
+ 	return 0;
+ }
+@@ -1367,11 +1383,13 @@ EXPORT_SYMBOL_GPL(ucsi_register);
+  */
+ void ucsi_unregister(struct ucsi *ucsi)
+ {
++	struct ucsi_android *aucsi = container_of(ucsi,
++				    struct ucsi_android, ucsi);
+ 	u64 cmd = UCSI_SET_NOTIFICATION_ENABLE;
+ 	int i;
+ 
+ 	/* Make sure that we are not in the middle of driver initialization */
+-	cancel_work_sync(&ucsi->work);
++	cancel_delayed_work_sync(&aucsi->work);
+ 
+ 	/* Disable notifications */
+ 	ucsi->ops->async_write(ucsi, UCSI_CONTROL, &cmd, sizeof(cmd));
+diff --git a/kernel-5.10/drivers/usb/typec/ucsi/ucsi.h b/kernel-5.10/drivers/usb/typec/ucsi/ucsi.h
+index b3450d87f32488429790210930e48c34376b8b34..d366ab2add374113eac37e4364dffeab03b310a8 100644
+--- a/kernel-5.10/drivers/usb/typec/ucsi/ucsi.h
++++ b/kernel-5.10/drivers/usb/typec/ucsi/ucsi.h
+@@ -289,6 +289,9 @@ struct ucsi {
+ 	struct ucsi_connector *connector;
+ 
+ 	struct work_struct work;
++#define UCSI_ROLE_SWITCH_RETRY_PER_HZ	10
++#define UCSI_ROLE_SWITCH_INTERVAL	(HZ / UCSI_ROLE_SWITCH_RETRY_PER_HZ)
++#define UCSI_ROLE_SWITCH_WAIT_COUNT	(10 * UCSI_ROLE_SWITCH_RETRY_PER_HZ)
+ 
+ 	/* PPM Communication lock */
+ 	struct mutex ppm_lock;
+@@ -304,6 +307,25 @@ struct ucsi {
+ #define EVENT_PROCESSING	3
+ };
+ 
++/**
++ * struct ucsi_android - contains parameters without modifying the format
++ * of ucsi struct.
++ * @ucsi: contains the ucsi reference.
++ * @work: work structure for queuing ucsi_init_work.
++ * @work_count: to track the wait count(MAX= UCSI_ROLE_SWITCH_WAIT_COUNT).
++ *
++ * Required to address Bug: 260537721
++ * If the role switch module probes late the
++ * fwnode_usb_role_switch_get() will fail with -EPROBE_DEFER.
++ * To recover from this, restart the ucsi_init_work
++ * to find the fwnode again using a delayed workqueue.
++ */
++struct ucsi_android {
++	struct ucsi ucsi;
++	struct delayed_work work;
++	int work_count;
++};
++
+ #define UCSI_MAX_SVID		5
+ #define UCSI_MAX_ALTMODES	(UCSI_MAX_SVID * 6)
+ 
+diff --git a/kernel-5.10/include/linux/mmc/host.h b/kernel-5.10/include/linux/mmc/host.h
+index 6fa9e476e77882e7d447b0473fce36e42b93043a..5fb3a15660a50be50169b7ba5716021389424cb8 100644
+--- a/kernel-5.10/include/linux/mmc/host.h
++++ b/kernel-5.10/include/linux/mmc/host.h
+@@ -178,7 +178,8 @@ struct mmc_host_ops {
+ 	int	(*multi_io_quirk)(struct mmc_card *card,
+ 				  unsigned int direction, int blk_size);
+ 
+-	ANDROID_KABI_RESERVE(1);
++	/* Uses the first Android KABI reserve slot. */
++	int	(*set_sdio_status)(struct mmc_host *host, int present);
+ 	ANDROID_KABI_RESERVE(2);
+ };
+ 
+@@ -508,6 +509,7 @@ void mmc_remove_host(struct mmc_host *);
+ void mmc_free_host(struct mmc_host *);
+ int mmc_of_parse(struct mmc_host *host);
+ int mmc_of_parse_voltage(struct device_node *np, u32 *mask);
++int mmc_host_rescan(struct mmc_host *host, int val, int is_cap_sdio_irq);
+ 
+ static inline void *mmc_priv(struct mmc_host *host)
+ {
+diff --git a/kernel-5.10/include/linux/mmc/mmc.h b/kernel-5.10/include/linux/mmc/mmc.h
+index d9a65c6a8816fdacbfba6a364ea4076d1cc72bad..545578fb814b09d3f5de9917a856c7b243407c82 100644
+--- a/kernel-5.10/include/linux/mmc/mmc.h
++++ b/kernel-5.10/include/linux/mmc/mmc.h
+@@ -445,7 +445,7 @@ static inline bool mmc_ready_for_data(u32 status)
+ #define MMC_SECURE_TRIM1_ARG		0x80000001
+ #define MMC_SECURE_TRIM2_ARG		0x80008000
+ #define MMC_SECURE_ARGS			0x80000000
+-#define MMC_TRIM_ARGS			0x00008001
++#define MMC_TRIM_OR_DISCARD_ARGS	0x00008003
+ 
+ #define mmc_driver_type_mask(n)		(1 << (n))
+ 
+diff --git a/kernel-5.10/net/rfkill/rfkill-wlan.c b/kernel-5.10/net/rfkill/rfkill-wlan.c
+index 89d9787b9ad97a79321e5448e06fadf4a19fe14d..e1577ac0c97f16d82e13dfbce8cc38cc7439b167 100644
+--- a/kernel-5.10/net/rfkill/rfkill-wlan.c
++++ b/kernel-5.10/net/rfkill/rfkill-wlan.c
+@@ -331,6 +331,15 @@ int rockchip_wifi_power(int on)
+ 		}
+ 	}
+ 
++	/* Keep the DW-MMC software card-present bit in sync with the BES2600
++	 * power rail.  The vendor module only toggles power on its first probe. */
++	{
++		int ret = mmc_host_rescan(NULL, !!on, 1);
++
++		if (ret)
++			LOG("%s: SDIO status update failed: %d\n", __func__, ret);
++	}
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL(rockchip_wifi_power);
+@@ -342,7 +351,7 @@ EXPORT_SYMBOL(rockchip_wifi_power);
+  *************************************************************************/
+ int rockchip_wifi_set_carddetect(int val)
+ {
+-	return 0;
++	return mmc_host_rescan(NULL, val, 1);
+ }
+ EXPORT_SYMBOL(rockchip_wifi_set_carddetect);
+ 

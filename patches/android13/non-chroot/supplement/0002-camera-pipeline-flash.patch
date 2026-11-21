@@ -1,0 +1,269 @@
+diff --git a/hardware/rockchip/camera/common/FlashLight.cpp b/hardware/rockchip/camera/common/FlashLight.cpp
+index 99915f40842f6e040f7a17765ec72f05e4e1c91a..1e742b5c34a23fa5723413b560b46a98d160f3f9 100644
+--- a/hardware/rockchip/camera/common/FlashLight.cpp
++++ b/hardware/rockchip/camera/common/FlashLight.cpp
+@@ -202,6 +202,17 @@ int32_t FlashLight::setFlashMode(const int cameraId, int flashIdx, const bool mo
+ 
+         qctrl.id = V4L2_CID_FLASH_TORCH_INTENSITY;
+         if (ioctl(mFlashFds[cameraId][flashIdx], VIDIOC_QUERYCTRL, &qctrl) < 0) {
++            if (errno == ENOTTY) {
++                const char value = mode ? '1' : '0';
++                if (lseek(mFlashFds[cameraId][flashIdx], 0, SEEK_SET) < 0 ||
++                    TEMP_FAILURE_RETRY(write(mFlashFds[cameraId][flashIdx],
++                                             &value, 1)) != 1) {
++                    LOGE("@%s : set LED class brightness failed", __FUNCTION__);
++                    return -errno;
++                }
++                mFlashOn[cameraId][flashIdx] = mode;
++                return 0;
++            }
+             LOGE("@%s : query falsh torch power failed", __FUNCTION__);
+             return -ENOSYS;
+         }
+@@ -304,4 +315,3 @@ int32_t FlashLight::releaseFlashFromCamera(const int cameraId)
+ 
+ } /* namespace camera2 */
+ } /* namespace android */
+-
+diff --git a/hardware/rockchip/camera/common/platformdata/PlatformData.cpp b/hardware/rockchip/camera/common/platformdata/PlatformData.cpp
+index 2f9df821a76ce1744e22faa95d4fde0a51200d9c..85acfff70d1741582d7d041648b6709f12c34271 100644
+--- a/hardware/rockchip/camera/common/platformdata/PlatformData.cpp
++++ b/hardware/rockchip/camera/common/platformdata/PlatformData.cpp
+@@ -1395,6 +1395,18 @@ status_t CameraHWInfo::findAttachedSubdevs(const std::string &mcPath,
+         }
+     }
+ 
++    /*
++     * X7 Pro drives the scan-head white LED through the LED class rather
++     * than a media-controller flash subdevice. Keeping it out of the SC035GS
++     * media graph avoids a null dereference in this vendor librkaiq while the
++     * HAL still exposes the light as an Android camera flash.
++     */
++    if (find_flashlight == 0 && drv_info.mModuleRealSensorName == "sc035gs") {
++        drv_info.mFlashNum = 1;
++        drv_info.mModuleFlashDevName[0] =
++                "/sys/class/leds/x7pro:white:flash/brightness";
++    }
++
+     return ret;
+ }
+ 
+diff --git a/hardware/rockchip/camera/etc/camera/camera3_profiles_rk3562.xml b/hardware/rockchip/camera/etc/camera/camera3_profiles_rk3562.xml
+index 4c02b3c4eb03d863d398fee4f6af1d5e43ff2a0d..43c1f02e36b31607df3e38221fbc5f1fbacd7ab7 100644
+--- a/hardware/rockchip/camera/etc/camera/camera3_profiles_rk3562.xml
++++ b/hardware/rockchip/camera/etc/camera/camera3_profiles_rk3562.xml
+@@ -2336,7 +2336,7 @@
+             <!-- Control -->
+             <control.availableModes value="AUTO"/>
+             <control.aeAvailableAntibandingModes value="OFF,50HZ,60Hz,AUTO"/>
+-            <control.aeAvailableModes value="ON,OFF"/>
++            <control.aeAvailableModes value="ON,OFF,ON_AUTO_FLASH,ON_ALWAYS_FLASH"/>
+             <control.aeLockAvailable value="FALSE"/>
+             <!-- <control.aeAvailableTargetFpsRanges value="15,30,30,30,60,60"/> -->
+             <control.aeAvailableTargetFpsRanges value="15,30,30,30"/>
+@@ -2512,7 +2512,7 @@
+             <flash.colorTemperature value="0"/>
+             <flash.maxEnergy value="0"/>
+             <!-- Flash info -->
+-            <flash.info.available value="FALSE"/>
++            <flash.info.available value="TRUE"/>
+             <flash.info.chargeDuration value="1000000"/>
+             <flash.maxEnergy value="10"/>
+             <!-- Sync -->
+diff --git a/hardware/rockchip/camera/psl/rkisp2/RKISP2CameraHw.cpp b/hardware/rockchip/camera/psl/rkisp2/RKISP2CameraHw.cpp
+index 7d1f279137a3506e42bed5447cba90ecc68eeea6..918babd4caad50f9b71585664a036d5e84e10eea 100644
+--- a/hardware/rockchip/camera/psl/rkisp2/RKISP2CameraHw.cpp
++++ b/hardware/rockchip/camera/psl/rkisp2/RKISP2CameraHw.cpp
+@@ -103,7 +103,8 @@ RKISP2CameraHw::init()
+     mControlUnit = new RKISP2ControlUnit(mImguUnit,
+                                    mCameraId,
+                                    mGCM,
+-                                   mMediaCtl);
++                                   mMediaCtl,
++                                   mImguMediaCtl);
+     status = mControlUnit->init();
+     if (status != NO_ERROR) {
+         LOGE("Error initializing ControlUnit. ret code:%x", status);
+diff --git a/hardware/rockchip/camera/psl/rkisp2/RKISP2ControlUnit.cpp b/hardware/rockchip/camera/psl/rkisp2/RKISP2ControlUnit.cpp
+index 553c5f6940b85f1eb6be420556e91c5bfc4c4b57..c9aadaf63460faa6716a306f5b1aa323727cdf20 100644
+--- a/hardware/rockchip/camera/psl/rkisp2/RKISP2ControlUnit.cpp
++++ b/hardware/rockchip/camera/psl/rkisp2/RKISP2ControlUnit.cpp
+@@ -249,7 +249,9 @@ int SocCamFlashCtrUnit::setV4lFlashMode(int mode, int power, int timeout, int st
+ 
+ RawCamFlashCtrUnit::RawCamFlashCtrUnit(const char* name,
+                                        int CameraId) :
+-        mFlSubdev(new V4L2Subdevice(name)),
++        mFlSubdev(strncmp(name, "/sys/class/leds/", 16) == 0 ?
++                  nullptr : new V4L2Subdevice(name)),
++        mSysfsFlashPath(mFlSubdev ? "" : name),
+         mV4lFlashMode(V4L2_FLASH_LED_MODE_NONE),
+         isNeedFlash(false),
+         mAeTrigFrms(0),
+@@ -274,6 +276,16 @@ int RawCamFlashCtrUnit::get_flash_info(void)
+     int flash_power, torch_power;
+ 
+     LOGD_FLASH("%s:%d", __FUNCTION__, __LINE__);
++    if (!mSysfsFlashPath.empty()) {
++        flash_power_info[RK_HAL_V4L_FLASH_QUERY_TYPE_E_MIN] = 0;
++        flash_power_info[RK_HAL_V4L_FLASH_QUERY_TYPE_E_MAX] = 1;
++        flash_power_info[RK_HAL_V4L_FLASH_QUERY_TYPE_E_DEFAULT] = 1;
++        flash_power_info[RK_HAL_V4L_FLASH_QUERY_TYPE_E_STEP] = 1;
++        memcpy(torch_power_info, flash_power_info, sizeof(torch_power_info));
++        fl_strth_adj_enable = false;
++        tc_strth_adj_enable = false;
++        return 0;
++    }
+     memset(&ctrl, 0, sizeof(ctrl));
+     ctrl.id = V4L2_CID_FLASH_INTENSITY;
+     if (pioctl(mFlSubdev->getFd(), VIDIOC_QUERYCTRL, &ctrl, 0) < 0) {
+@@ -482,6 +494,21 @@ int RawCamFlashCtrUnit::setV4lFlashMode(int mode, int power, int fl_timeout, int
+     struct v4l2_control control;
+     int fl_v4l_mode;
+ 
++    if (!mSysfsFlashPath.empty()) {
++        const char value = mode == CAM_AE_FLASH_MODE_OFF ? '0' : '1';
++        int fd = TEMP_FAILURE_RETRY(open(mSysfsFlashPath.c_str(),
++                                         O_WRONLY | O_CLOEXEC));
++        if (fd < 0)
++            return -errno;
++        ssize_t written = TEMP_FAILURE_RETRY(write(fd, &value, 1));
++        close(fd);
++        if (written != 1)
++            return -EIO;
++        mV4lFlashMode = mode == CAM_AE_FLASH_MODE_OFF ?
++                V4L2_FLASH_LED_MODE_NONE : V4L2_FLASH_LED_MODE_TORCH;
++        return 0;
++    }
++
+ #define set_fl_contol_to_dev(control_id,val) \
+         memset(&control, 0, sizeof(control)); \
+         control.id = control_id; \
+@@ -552,7 +579,8 @@ int RawCamFlashCtrUnit::setV4lFlashMode(int mode, int power, int fl_timeout, int
+ RKISP2ControlUnit::RKISP2ControlUnit(RKISP2ImguUnit *thePU,
+                          int cameraId,
+                          RKISP2IStreamConfigProvider &aStreamCfgProv,
+-                         std::shared_ptr<MediaController> mc) :
++                         std::shared_ptr<MediaController> sensorMc,
++                         std::shared_ptr<MediaController> imguMc) :
+         mRequestStatePool("CtrlReqState"),
+         mCaptureUnitSettingsPool("CapUSettings"),
+         mProcUnitSettingsPool("ProcUSettings"),
+@@ -561,7 +589,8 @@ RKISP2ControlUnit::RKISP2ControlUnit(RKISP2ImguUnit *thePU,
+         mCtrlLoop(nullptr),
+         mEnable3A(true),
+         mCameraId(cameraId),
+-        mMediaCtl(mc),
++        mMediaCtl(sensorMc),
++        mImguMediaCtl(imguMc),
+         mThreadRunning(false),
+         mMessageQueue("CtrlUnitThread", static_cast<int>(MESSAGE_ID_MAX)),
+         mMessageThread(nullptr),
+@@ -630,17 +659,46 @@ RKISP2ControlUnit::getDevicesPath()
+         }
+     }
+ 
+-    /*
+-     * Sensors behind rkcif reach the ISP through a separate media device.
+-     * The old first-link heuristic only worked when the sensor was linked
+-     * directly to an entity whose name contained "cif". On RK3562 the
+-     * first hop is a CSI2 D-PHY, so do not look for ISP entities here.
+-     */
++    /* Sensors behind rkcif reach the ISP through a separate media device. */
+     media_device_info mediaInfo;
+     if (mMediaCtl->getMediaDevInfo(mediaInfo) == OK &&
+             !strncmp(mediaInfo.driver, "rkcif", strlen("rkcif"))) {
+         LOGI("Sensor is connected through %s; ISP nodes are on the IMGU media device",
+              mediaInfo.model);
++        if (!mImguMediaCtl) {
++            LOGE("No IMGU media controller for rkcif sensor");
++            return UNKNOWN_ERROR;
++        }
++
++        entityName = "rkisp-isp-subdev";
++        status = mImguMediaCtl->getMediaEntity(mediaEntity, entityName.c_str());
++        if (mediaEntity == nullptr || status != NO_ERROR) {
++            LOGE("Could not retrieve IMGU media entity %s", entityName.c_str());
++            return UNKNOWN_ERROR;
++        }
++        mediaEntity->getDevice((std::shared_ptr<V4L2DeviceBase>&) subdev);
++        if (subdev.get())
++            mDevPathsMap[KDevPathTypeIspDevNode] = subdev->name();
++
++        entityName = "rkisp-input-params";
++        status = mImguMediaCtl->getMediaEntity(mediaEntity, entityName.c_str());
++        if (mediaEntity == nullptr || status != NO_ERROR) {
++            LOGE("Could not retrieve IMGU media entity %s", entityName.c_str());
++            return UNKNOWN_ERROR;
++        }
++        mediaEntity->getDevice((std::shared_ptr<V4L2DeviceBase>&) subdev);
++        if (subdev.get())
++            mDevPathsMap[KDevPathTypeIspInputParamsNode] = subdev->name();
++
++        entityName = "rkisp-statistics";
++        status = mImguMediaCtl->getMediaEntity(mediaEntity, entityName.c_str());
++        if (mediaEntity == nullptr || status != NO_ERROR) {
++            LOGE("Could not retrieve IMGU media entity %s", entityName.c_str());
++            return UNKNOWN_ERROR;
++        }
++        mediaEntity->getDevice((std::shared_ptr<V4L2DeviceBase>&) subdev);
++        if (subdev.get())
++            mDevPathsMap[KDevPathTypeIspStatsNode] = subdev->name();
+         return OK;
+     }
+ 
+diff --git a/hardware/rockchip/camera/psl/rkisp2/RKISP2ControlUnit.h b/hardware/rockchip/camera/psl/rkisp2/RKISP2ControlUnit.h
+index 6571cc4d34ef518f64f60c190d0026db9b90f352..175e730487d3fa374f8a5c8b44b1c9d988bbf0be 100755
+--- a/hardware/rockchip/camera/psl/rkisp2/RKISP2ControlUnit.h
++++ b/hardware/rockchip/camera/psl/rkisp2/RKISP2ControlUnit.h
+@@ -18,6 +18,7 @@
+ #ifndef CAMERA3_HAL_RKISP2ControlUnit_H_
+ #define CAMERA3_HAL_RKISP2ControlUnit_H_
+ #include <memory>
++#include <string>
+ #include <vector>
+ //#include <linux/rkisp1-config_v12.h>
+ #include "MessageQueue.h"
+@@ -116,6 +117,7 @@ private:  /* Methods */
+     RawCamFlashCtrUnit(const RawCamFlashCtrUnit& other);
+     RawCamFlashCtrUnit& operator=(const RawCamFlashCtrUnit& other);
+     std::shared_ptr<V4L2Subdevice> mFlSubdev;
++    std::string mSysfsFlashPath;
+     int mV4lFlashMode;
+     int mAeTrigFrms;
+     uint8_t mAeFlashMode;
+@@ -147,7 +149,8 @@ public:
+     explicit RKISP2ControlUnit(RKISP2ImguUnit *thePU,
+                          int CameraId,
+                          RKISP2IStreamConfigProvider &aStreamCfgProv,
+-                         std::shared_ptr<MediaController> mc);
++                         std::shared_ptr<MediaController> sensorMc,
++                         std::shared_ptr<MediaController> imguMc);
+     virtual ~RKISP2ControlUnit();
+ 
+     status_t init();
+@@ -269,6 +272,7 @@ private:  /* Members */
+     int             mCameraId;
+ 
+     std::shared_ptr<MediaController>             mMediaCtl;
++    std::shared_ptr<MediaController>             mImguMediaCtl;
+ 
+     /**
+      * Thread control members
+diff --git a/hardware/rockchip/camera/psl/rkisp2/workers/RKISP2PostProcessPipeline.cpp b/hardware/rockchip/camera/psl/rkisp2/workers/RKISP2PostProcessPipeline.cpp
+index 3d40e620746ca18dd7a14eec5453e64bb7a56238..08c5f66c9901e84f23b6ba4e2a6bf0abe1f3a17a 100644
+--- a/hardware/rockchip/camera/psl/rkisp2/workers/RKISP2PostProcessPipeline.cpp
++++ b/hardware/rockchip/camera/psl/rkisp2/workers/RKISP2PostProcessPipeline.cpp
+@@ -298,9 +298,10 @@ void
+ RKISP2PostProcessUnit::prepareProcess() {
+     // get a frame to be processed from input buffer queue
+     std::unique_lock<std::mutex> l(mApiLock);
+-    if (mThreadRunning && mInBufferPool.empty())
+-        mCondition.wait(l);
+-    if (!mThreadRunning)
++    mCondition.wait(l, [this] {
++        return !mThreadRunning || !mInBufferPool.empty();
++    });
++    if (!mThreadRunning || mInBufferPool.empty())
+         return;
+     LOGD("%s: @%s, mInBufferPool size:%d, mOutBufferPool size:%d",
+         mName, __FUNCTION__, mInBufferPool.size(), mOutBufferPool.size());

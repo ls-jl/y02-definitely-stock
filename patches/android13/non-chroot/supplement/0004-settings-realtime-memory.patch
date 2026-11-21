@@ -1,0 +1,123 @@
+diff --git a/packages/apps/Settings/res/values-zh-rCN/strings.xml b/packages/apps/Settings/res/values-zh-rCN/strings.xml
+index b45127e9342b8a0ff53e3dfa36b3359fc44978b7..94674c70fd5e1578b5f85cb3fd08a6391e1a92db 100644
+--- a/packages/apps/Settings/res/values-zh-rCN/strings.xml
++++ b/packages/apps/Settings/res/values-zh-rCN/strings.xml
+@@ -4826,6 +4826,7 @@
+     <string name="display_dashboard_summary" msgid="1599453894989339454">"深色主题、字体大小、亮度"</string>
+     <string name="display_summary_example" msgid="4275121979039344438">"闲置 10 分钟后会进入休眠状态"</string>
+     <string name="memory_summary" msgid="8221954450951651735">"平均内存用量为 <xliff:g id="USED_MEMORY">%1$s</xliff:g>，共 <xliff:g id="TOTAL_MEMORY">%2$s</xliff:g>"</string>
++    <string name="memory_summary_current">"当前已使用 <xliff:g id="USED_MEMORY">%1$s</xliff:g>，共 <xliff:g id="TOTAL_MEMORY">%2$s</xliff:g>"</string>
+     <string name="users_summary" msgid="8473589474976307510">"目前的登录身份：<xliff:g id="USER_NAME">%1$s</xliff:g>"</string>
+     <string name="payment_summary" msgid="5513009140568552693">"默认使用<xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+     <string name="backup_disabled" msgid="4503062265560959320">"备份功能已停用"</string>
+diff --git a/packages/apps/Settings/res/values/strings.xml b/packages/apps/Settings/res/values/strings.xml
+index 7a32c528efd2db6a8b8e1e872b63867c4000d980..ae00af63e462de9aeb70f84c8841057caed69c33 100644
+--- a/packages/apps/Settings/res/values/strings.xml
++++ b/packages/apps/Settings/res/values/strings.xml
+@@ -11512,6 +11512,7 @@
+ 
+     <!-- Summary of memory screen [CHAR LIMIT=NONE] -->
+     <string name="memory_summary">Avg <xliff:g id="used_memory" example="1.7GB">%1$s</xliff:g> of <xliff:g id="total_memory" example="2GB">%2$s</xliff:g> memory used</string>
++    <string name="memory_summary_current">Using <xliff:g id="used_memory" example="1.2GB">%1$s</xliff:g> of <xliff:g id="total_memory" example="2GB">%2$s</xliff:g> memory</string>
+ 
+     <!-- Summary of User settings [CHAR LIMIT=NONE] -->
+     <string name="users_summary">Signed in as <xliff:g id="user_name" example="Jason">%1$s</xliff:g></string>
+diff --git a/packages/apps/Settings/src/com/android/settings/development/MemoryUsagePreferenceController.java b/packages/apps/Settings/src/com/android/settings/development/MemoryUsagePreferenceController.java
+index 1b20e70a5789185ba70cd6682c507f434a3767f7..db2c8dbd2928c4a825d9ff432d8e44098b251cb4 100644
+--- a/packages/apps/Settings/src/com/android/settings/development/MemoryUsagePreferenceController.java
++++ b/packages/apps/Settings/src/com/android/settings/development/MemoryUsagePreferenceController.java
+@@ -16,6 +16,7 @@
+ 
+ package com.android.settings.development;
+ 
++import android.app.ActivityManager;
+ import android.content.Context;
+ import android.text.format.Formatter;
+ 
+@@ -59,14 +60,25 @@ public class MemoryUsagePreferenceController extends DeveloperOptionsPreferenceC
+         // This is posted on the background thread to speed up fragment launch time for dev options
+         // mProcStasData.refreshStats(true) takes ~20ms to run.
+         ThreadUtils.postOnBackgroundThread(() -> {
+-            mProcStatsData.refreshStats(true);
+-            final ProcStatsData.MemInfo memInfo = mProcStatsData.getMemInfo();
+-            final String usedResult = Formatter.formatShortFileSize(mContext,
+-                    (long) memInfo.realUsedRam);
+-            final String totalResult = Formatter.formatShortFileSize(mContext,
+-                    (long) memInfo.realTotalRam);
++            final long usedRam;
++            final long totalRam;
++            final int summaryRes;
++            if (isLowRamDevice()) {
++                final ActivityManager.MemoryInfo realtime = getRealtimeMemoryInfo();
++                totalRam = realtime.totalMem;
++                usedRam = Math.max(0, totalRam - realtime.availMem);
++                summaryRes = R.string.memory_summary_current;
++            } else {
++                mProcStatsData.refreshStats(true);
++                final ProcStatsData.MemInfo memInfo = mProcStatsData.getMemInfo();
++                usedRam = (long) memInfo.realUsedRam;
++                totalRam = (long) memInfo.realTotalRam;
++                summaryRes = R.string.memory_summary;
++            }
++            final String usedResult = Formatter.formatShortFileSize(mContext, usedRam);
++            final String totalResult = Formatter.formatShortFileSize(mContext, totalRam);
+             ThreadUtils.postOnMainThread(
+-                    () -> mPreference.setSummary(mContext.getString(R.string.memory_summary,
++                    () -> mPreference.setSummary(mContext.getString(summaryRes,
+                             usedResult, totalResult)));
+         });
+     }
+@@ -80,4 +92,16 @@ public class MemoryUsagePreferenceController extends DeveloperOptionsPreferenceC
+     ProcStatsData getProcStatsData() {
+         return new ProcStatsData(mContext, false);
+     }
++
++    @VisibleForTesting
++    boolean isLowRamDevice() {
++        return ActivityManager.isLowRamDeviceStatic();
++    }
++
++    @VisibleForTesting
++    ActivityManager.MemoryInfo getRealtimeMemoryInfo() {
++        final ActivityManager.MemoryInfo info = new ActivityManager.MemoryInfo();
++        mContext.getSystemService(ActivityManager.class).getMemoryInfo(info);
++        return info;
++    }
+ }
+diff --git a/packages/apps/Settings/tests/robotests/src/com/android/settings/development/MemoryUsagePreferenceControllerTest.java b/packages/apps/Settings/tests/robotests/src/com/android/settings/development/MemoryUsagePreferenceControllerTest.java
+index fa08653c8dbc19a2b3a2d70d361b53c29edce45f..e9d9a0177d822e235a2fc1ef32fee8127a031041 100644
+--- a/packages/apps/Settings/tests/robotests/src/com/android/settings/development/MemoryUsagePreferenceControllerTest.java
++++ b/packages/apps/Settings/tests/robotests/src/com/android/settings/development/MemoryUsagePreferenceControllerTest.java
+@@ -19,10 +19,13 @@ package com.android.settings.development;
+ import static org.mockito.ArgumentMatchers.anyString;
+ import static org.mockito.Mockito.doNothing;
+ import static org.mockito.Mockito.doReturn;
++import static org.mockito.Mockito.never;
+ import static org.mockito.Mockito.spy;
+ import static org.mockito.Mockito.verify;
+ import static org.mockito.Mockito.when;
+ 
++import android.app.ActivityManager;
++
+ import androidx.preference.Preference;
+ import androidx.preference.PreferenceScreen;
+ 
+@@ -67,4 +70,18 @@ public class MemoryUsagePreferenceControllerTest {
+ 
+         verify(mPreference).setSummary(anyString());
+     }
++
++    @Test
++    public void updateState_lowRam_usesRealtimeMemory() {
++        final ActivityManager.MemoryInfo realtime = new ActivityManager.MemoryInfo();
++        realtime.totalMem = 1024L * 1024L * 1024L;
++        realtime.availMem = 400L * 1024L * 1024L;
++        doReturn(true).when(mController).isLowRamDevice();
++        doReturn(realtime).when(mController).getRealtimeMemoryInfo();
++
++        mController.updateState(mPreference);
++
++        verify(mProcStatsData, never()).refreshStats(true);
++        verify(mPreference).setSummary(anyString());
++    }
+ }

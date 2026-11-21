@@ -1,0 +1,15 @@
+# Keep this repository limited to the port patches and source tools.
+/android13_sdk/
+/out/
+/build/
+/.scratch/
+/device_backup_*/
+/device_dump_*/
+__pycache__/
+*.py[cod]
+*.img
+*.raw
+*.bin
+*.ko
+*.dtb
+*.log

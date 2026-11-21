@@ -1,0 +1,11 @@
+diff --git a/device/rockchip/rk3562/rk3562_x7pro_go/overlay/frameworks/base/core/res/res/values/config.xml b/device/rockchip/rk3562/rk3562_x7pro_go/overlay/frameworks/base/core/res/res/values/config.xml
+new file mode 100644
+index 0000000000000000000000000000000000000000..839654bc39b7b30f6ea0b13a8dd55bb2479dfea2
+--- /dev/null
++++ b/device/rockchip/rk3562/rk3562_x7pro_go/overlay/frameworks/base/core/res/res/values/config.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <!-- The pen is commonly held with the phone-style Z axis facing down. -->
++    <bool name="config_flipToScreenOffEnabled">false</bool>
++</resources>

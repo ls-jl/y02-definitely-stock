@@ -1,0 +1,1844 @@
+{
+  "format": 1,
+  "base_commit": "2739aad12478b269998fbac4ea39f396f4695f9f",
+  "snapshot_commit": "1a2da0cd230e447abd85f1eaaa7e0b5e50fda036",
+  "snapshot_tree": "173736490a35b8d299094860e9d509dbf37da2eb",
+  "later_history_commit": "2f8600284e4f869435f1b3689fb79ab9f55a8aee",
+  "native_tree": "8ebc2d72225ea10e0363f826e7d32d64dd3b6420",
+  "snapshot_patches": [
+    {
+      "file": "final12/0001-host-build.patch",
+      "sha256": "0fc224a8be96f881a4a55e34b62a9ad1c980bd9756ac29864fed188177eb6b6a",
+      "paths": [
+        {
+          "status": "A",
+          "path": "AGENTS.md"
+        },
+        {
+          "status": "M",
+          "path": "build.sh"
+        },
+        {
+          "status": "M",
+          "path": "javaenv.sh"
+        },
+        {
+          "status": "M",
+          "path": "rkbin/.gitignore"
+        },
+        {
+          "status": "D",
+          "path": "rkbin/tools/config.ini"
+        }
+      ],
+      "provenance": [],
+      "module": "host-build",
+      "title": "Host build scripts and repository guidance"
+    },
+    {
+      "file": "final12/0002-product.patch",
+      "sha256": "c0a75ca5b82251a0d75145d00ef188fceb84a61aa0c08512e7e9b2539528e98b",
+      "paths": [
+        {
+          "status": "M",
+          "path": "device/rockchip/rk3562/AndroidProducts.mk"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/Android.mk"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/AndroidBoard.mk"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/BoardConfig.mk"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/README.md"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/besbt.conf"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/bt_vendor.conf"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/config.cfg"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/config.cfg_ab"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/dt-overlay.in"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/init.x7pro.bluetooth.rc"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/media_profiles_default.xml"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/mkbootimg_x7pro.py"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/ota/loader/readme.txt"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/overlay/frameworks/base/packages/SettingsProvider/res/values/defaults.xml"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/parameter_ab.txt"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/dtb/rk3562-y02-saradc-ch2-228.dtb"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/firmware/aw883xx_acf.bin"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/firmware/bes2600_dpd.bin"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/firmware/bes2600_factory.txt"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/firmware/best2002_fw_boot_sdio.bin"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/firmware/best2002_fw_sdio.bin"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/firmware/best2002_fw_sdio_btrf.bin"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/firmware/best2002_fw_sdio_nosignal.bin"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/iqfiles/gc05a2_default_default.json"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/iqfiles/gc08a8_default_default.json"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/iqfiles/gc08a8_default_default_y03.json"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/iqfiles/gc8034_KYT-10203-v1_default.json"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/iqfiles/gc8034_RK-CMK-8M-2-v1_CK8401.json"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/iqfiles/ov13855_KYT-10203-v1_default.json"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/iqfiles/ov50c40_HZGA06_ZE0082C1.json"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/iqfiles/ov7251_default_default.json"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/iqfiles/sc035gs_default_default.json"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/iqfiles/sc035hgs_default_default.json"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/iqfiles/sc2356_default_default.json"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/modules.load"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/modules/bes2600.ko"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/modules/dio4480.ko"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/modules/fake_keys.ko"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/modules/gc08a8.ko"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/modules/gs-da267.ko"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/modules/iqs323.ko"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/modules/sitronix-ts.ko"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/modules/snd-soc-aw883xx-v16.ko"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/modules/typec_aw35616.ko"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/prebuilt/modules/usb_device_notify.ko"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/preinstall/Android.mk"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/preinstall/README.txt"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/preinstall/preinstall.mk"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/preinstall_del/Android.mk"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/preinstall_del/README.txt"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/preinstall_del/preinstall.mk"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/preinstall_del_forever/Android.mk"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/preinstall_del_forever/README.txt"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/preinstall_del_forever/preinstall.mk"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/recovery.fstab"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/recovery.fstab_AB"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/resolution_white.xml"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/rk3562_x7pro_go.mk"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/sepolicy/vendor/file_contexts"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/sepolicy/vendor/hal_wifi_default.te"
+        },
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/sepolicy/vendor/hal_wifi_supplicant_default.te"
+        }
+      ],
+      "provenance": [],
+      "module": "product",
+      "title": "X7 Pro product, FIT packaging and captured vendor assets"
+    },
+    {
+      "file": "final12/0003-rockchip-common.patch",
+      "sha256": "a91a6114567f03b07e02efe16f2c2515053621fd3706977f0bff6d6e6c3a0274",
+      "paths": [
+        {
+          "status": "M",
+          "path": "device/rockchip/common/build/rockchip/RebuildParameter.mk"
+        },
+        {
+          "status": "M",
+          "path": "device/rockchip/common/build/rockchip/build.sh"
+        },
+        {
+          "status": "M",
+          "path": "device/rockchip/common/modules/recovery.mk"
+        },
+        {
+          "status": "M",
+          "path": "device/rockchip/common/modules/rockchip_apps.mk"
+        },
+        {
+          "status": "M",
+          "path": "device/rockchip/common/rootdir/init.insmod.cfg"
+        },
+        {
+          "status": "M",
+          "path": "device/rockchip/common/rootdir/init.rk30board.usb.rc"
+        },
+        {
+          "status": "M",
+          "path": "device/rockchip/common/rootdir/ueventd.rockchip.rc"
+        }
+      ],
+      "provenance": [],
+      "module": "rockchip-common",
+      "title": "Shared Rockchip init, permissions and recovery integration"
+    },
+    {
+      "file": "final12/0004-kernel-stable-abi.patch",
+      "sha256": "dfa2931f2786a2bc87901509581767df780b35cb99d6cf70719dd20f15458b9b",
+      "paths": [
+        {
+          "status": "M",
+          "path": "kernel-5.10/Makefile"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/alpha/kernel/rtc.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm/boot/dts/at91rm9200.dtsi"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm/boot/dts/imx7s.dtsi"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm/boot/dts/rk3036-evb.dts"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm/boot/dts/rk3188-radxarock.dts"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm/boot/dts/rk3188.dtsi"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm/boot/dts/rk3288-evb-act8846.dts"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm/boot/dts/rk3288-firefly.dtsi"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm/boot/dts/rk3288-miqi.dts"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm/boot/dts/rk3288-rock2-square.dts"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm/boot/dts/rk3xxx.dtsi"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm/include/asm/perf_event.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm/include/asm/pgtable-nommu.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm/include/asm/pgtable.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm/mm/nommu.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm64/Kconfig"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm64/boot/dts/rockchip/rk3308-roc-cc.dts"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm64/boot/dts/rockchip/rk3399-rock-pi-4.dtsi"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm64/configs/gki_defconfig"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm64/configs/rockchip_gki.fragment"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm64/include/asm/cache.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm64/include/asm/mte-kasan.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm64/include/asm/percpu.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/csky/include/asm/processor.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/microblaze/include/asm/page.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/riscv/kernel/vdso/Makefile"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/s390/kvm/vsie.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/x86/configs/gki_defconfig"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/x86/include/asm/cpufeatures.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/x86/include/asm/nospec-branch.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/x86/kernel/cpu/bugs.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/x86/kernel/cpu/mtrr/mtrr.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/x86/kernel/cpu/tsx.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/x86/kernel/hpet.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/x86/kernel/process.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/x86/kernel/smpboot.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/x86/power/cpu.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/block/partitions/core.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/build.config.allmodconfig"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/acpi/numa/hmat.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/android/vendor_hooks.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/base/power/trace.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/bluetooth/btusb.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/char/tpm/tpm-interface.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/clk/at91/at91rm9200.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/clocksource/timer-riscv.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/dma-buf/dma-buf-sysfs-stats.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/firmware/smccc/kvm_guest.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/gpio/gpio-amd8111.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/gpu/drm/bridge/ti-sn65dsi86.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/gpu/drm/drm_dp_mst_topology.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/gpu/drm/drm_gem_shmem_helper.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/gpu/drm/i915/gt/intel_gt_requests.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/gpu/drm/vmwgfx/vmwgfx_scrn.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/hid/hid-core.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/hid/hid-ids.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/hid/hid-lg4ff.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/hid/hid-quirks.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/hwmon/coretemp.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/hwmon/i5500_temp.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/hwmon/ibmpex.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/hwmon/ina3221.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/hwmon/ltc2947-core.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/i2c/busses/i2c-imx.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/i2c/busses/i2c-npcm7xx.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/iio/health/afe4403.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/iio/health/afe4404.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/iio/light/Kconfig"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/iommu/intel/dmar.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/iommu/intel/iommu.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/media/common/videobuf2/videobuf2-core.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/media/v4l2-core/v4l2-dv-timings.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/mfd/rk808.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/mmc/host/dw_mmc.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/mmc/host/sdhci-esdhc-imx.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/mmc/host/sdhci-sprd.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/can/cc770/cc770_isa.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/can/sja1000/sja1000_isa.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/can/usb/esd_usb2.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/can/usb/mcba_usb.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/dsa/lan9303-core.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/dsa/sja1105/sja1105_devlink.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/aeroflex/greth.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/aquantia/atlantic/aq_main.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/aquantia/atlantic/aq_main.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/cavium/thunder/nicvf_main.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/hisilicon/hisi_femac.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/intel/e100.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/intel/e1000e/netdev.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/intel/fm10k/fm10k_main.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/intel/i40e/i40e_ethtool.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/intel/i40e/i40e_main.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/intel/iavf/iavf_main.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/intel/igb/igb_ethtool.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/marvell/mvneta.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/mellanox/mlx5/core/cmd.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads_termtbl.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/mellanox/mlx5/core/steering/dr_table.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/microchip/encx24j600-regmap.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/ni/nixge.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/renesas/ravb_main.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ieee802154/ca8210.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ieee802154/cc2520.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/macsec.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/ntb_netdev.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/phy/phy_device.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/plip/plip.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/tun.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/usb/qmi_wwan.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/vmxnet3/vmxnet3_drv.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/xen-netback/common.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/xen-netback/interface.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/xen-netback/netback.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/xen-netback/rx.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/net/xen-netfront.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/nvme/host/core.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/nvme/host/pci.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/of/property.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/pinctrl/intel/pinctrl-intel.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/pinctrl/mediatek/mtk-eint.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/pinctrl/pinctrl-single.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/regulator/slg51000-regulator.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/regulator/twl6030-regulator.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/rtc/rtc-cmos.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/rtc/rtc-mc146818-lib.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/spi/spi-imx.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/tty/n_gsm.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/usb/gadget/function/f_mass_storage.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/usb/gadget/function/f_uvc.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/video/fbdev/core/fbcon.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/fs/afs/fs_probe.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/fs/btrfs/backref.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/fs/btrfs/backref.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/fs/btrfs/ioctl.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/fs/btrfs/qgroup.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/fs/btrfs/send.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/fs/fuse/dir.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/fs/nfsd/vfs.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/fs/nilfs2/dat.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/fs/pstore/ram.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/fs/read_write.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/asm-generic/tlb.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/crypto/hash.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/linux/can/platform/sja1000.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/linux/cgroup.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/linux/clk-provider.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/linux/debug_locks.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/linux/fs.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/linux/hugetlb.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/linux/jump_label.h"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/include/linux/kasan-enabled.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/linux/kasan.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/linux/mc146818rtc.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/linux/printk.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/linux/slab.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/net/sctp/stream_sched.h"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/include/trace/hooks/dmabuf.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/trace/hooks/dtask.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/ipc/sem.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/kernel/bpf/bpf_local_storage.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/kernel/bpf/bpf_lru_list.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/kernel/cgroup/cgroup-internal.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/kernel/events/core.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/kernel/locking/percpu-rwsem.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/kernel/trace/trace_dynevent.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/kernel/trace/trace_events.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/lib/Kconfig.debug"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/mm/frame_vector.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/mm/gup.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/mm/hugetlb.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/mm/khugepaged.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/mm/madvise.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/mm/memcontrol.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/mm/mmu_gather.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/mm/page_alloc.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/mm/slab.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/mm/slab_common.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/mm/slob.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/9p/trans_fd.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/9p/trans_xen.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/bluetooth/6lowpan.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/bluetooth/af_bluetooth.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/bluetooth/hci_core.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/can/af_can.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/dsa/tag_ksz.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/hsr/hsr_forward.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/ipv4/fib_frontend.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/ipv4/fib_semantics.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/ipv4/ip_gre.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/ipv6/ip6_output.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/mac80211/airtime.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/mac802154/iface.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/netfilter/nf_conntrack_netlink.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/netfilter/nft_set_pipapo.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/nfc/nci/ntf.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/packet/af_packet.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/sctp/stream.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/sctp/stream_sched.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/sctp/stream_sched_prio.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/sctp/stream_sched_rr.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/tipc/crypto.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/tipc/link.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/tipc/node.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/unix/diag.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/wireless/scan.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/scripts/faddr2line"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/sound/core/seq/seq_memory.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/sound/soc/fsl/fsl_micfil.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/sound/soc/soc-ops.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/sound/soc/soc-pcm.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/tools/lib/bpf/libbpf_probes.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/tools/lib/bpf/ringbuf.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/tools/testing/selftests/net/fib_nexthops.sh"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/tools/testing/selftests/net/fib_tests.sh"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/tools/testing/selftests/net/rtnetlink.sh"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/tools/vm/slabinfo-gnuplot.sh"
+        }
+      ],
+      "provenance": [],
+      "module": "kernel-stable-abi",
+      "title": "Kernel version reconciliation, core and vendor module ABI"
+    },
+    {
+      "file": "final12/0005-kernel-board.patch",
+      "sha256": "6b9aa547a72cd3bda461e3fa17eb68258646be9c5cf8cbaabfaaabe460bd68f1",
+      "paths": [
+        {
+          "status": "M",
+          "path": "kernel-5.10/arch/arm64/boot/dts/rockchip/Makefile"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/arch/arm64/boot/dts/rockchip/rk3562-y02-v10.dts"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/kernel/configs/x7pro.config"
+        }
+      ],
+      "provenance": [],
+      "module": "kernel-board",
+      "title": "Board DTS and X7 Pro kernel configuration"
+    },
+    {
+      "file": "final12/0006-kernel-display-input.patch",
+      "sha256": "31fac32fad5bb4be446171a50b5bcabecaa4f1cbdf3805c3a385a89cd7c924e8",
+      "paths": [
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/gpu/drm/panel/panel-simple.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/gpu/drm/rockchip/rockchip_drm_vop2.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/input/Kconfig"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/input/Makefile"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/input/sensors/accel/Kconfig"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/input/sensors/accel/da223_core.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/input/sensors/accel/da223_cust.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/input/touchscreen/Kconfig"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/input/touchscreen/Makefile"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/input/touchscreen/raydium_i2c_ts.c"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/drivers/input/touchscreen/x7_sitronix_77921.dump"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/drivers/input/touchscreen/x7_sitronix_77921_fw.S"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/drivers/input/touchscreen/x7_sitronix_ts_main.c"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/drivers/input/x7pro-tp-report.c"
+        }
+      ],
+      "provenance": [],
+      "module": "kernel-display-input",
+      "title": "Display, touch and sensor drivers"
+    },
+    {
+      "file": "final12/0007-kernel-camera.patch",
+      "sha256": "599e1b90a21c7b17831b6c5dbe065e980406e91102d62c7797cc01626da14e9f",
+      "paths": [
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/media/i2c/Kconfig"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/media/i2c/Makefile"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/drivers/media/i2c/gc08a8.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/media/i2c/sc035gs.c"
+        }
+      ],
+      "provenance": [],
+      "module": "kernel-camera",
+      "title": "Camera sensor drivers"
+    },
+    {
+      "file": "final12/0008-kernel-audio.patch",
+      "sha256": "d6c347d4d6731a6e597672a7803f1be8e446e6d7195c0591e7b275795f64d476",
+      "paths": [
+        {
+          "status": "M",
+          "path": "kernel-5.10/sound/soc/codecs/Kconfig"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/sound/soc/codecs/Makefile"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx/aw883xx.c"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/Kconfig"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/LICENSE"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/Makefile"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/README.md"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx.c"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx.h"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_bin_parse.c"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_bin_parse.h"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_calib.c"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_calib.h"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_data_type.h"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_device.c"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_device.h"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_init.c"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_log.h"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_monitor.c"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_monitor.h"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_pid_2049_init.c"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_pid_2049_reg.h"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_pid_2066_init.c"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_pid_2066_reg.h"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_pid_2183_init.c"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_pid_2183_reg.h"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_spin.c"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/sound/soc/codecs/aw883xx_v16/aw883xx_spin.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/sound/soc/codecs/cs42l51.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/sound/soc/codecs/wm8962.c"
+        }
+      ],
+      "provenance": [],
+      "module": "kernel-audio",
+      "title": "Audio codecs and amplifier"
+    },
+    {
+      "file": "final12/0009-kernel-usb-radio-power.patch",
+      "sha256": "cca4df969ca16c46a6d49895efd4ba7288fbd75f8f2120fdac546f1a0c64866e",
+      "paths": [
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/mmc/core/core.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/mmc/core/host.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/mmc/core/mmc_test.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/power/supply/rk817_battery.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/usb/dwc3/Makefile"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/usb/dwc3/core.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/usb/dwc3/ep0.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/usb/dwc3/gadget.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/usb/dwc3/trace.h"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/drivers/usb/dwc3/x7regdump.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/usb/typec/Kconfig"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/usb/typec/Makefile"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/drivers/usb/typec/typec_aw35616.c"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/drivers/usb/typec/typec_aw35616.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/usb/typec/ucsi/ucsi.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/usb/typec/ucsi/ucsi.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/linux/mmc/host.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/include/linux/mmc/mmc.h"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/net/rfkill/rfkill-wlan.c"
+        }
+      ],
+      "provenance": [],
+      "module": "kernel-usb-radio-power",
+      "title": "DWC3, Type-C, SDIO radio and battery support"
+    },
+    {
+      "file": "final12/0010-hal-connectivity.patch",
+      "sha256": "d8753251ab8ef203078b35875c4a456d585b8210d4b33abd0d3b723f3cb54983",
+      "paths": [
+        {
+          "status": "M",
+          "path": "frameworks/opt/net/wifi/libwifi_hal/Android.mk"
+        },
+        {
+          "status": "M",
+          "path": "frameworks/opt/net/wifi/libwifi_hal/rk_wifi_ctrl.cpp"
+        },
+        {
+          "status": "M",
+          "path": "frameworks/opt/net/wifi/libwifi_hal/wifi_hal_common.cpp"
+        },
+        {
+          "status": "M",
+          "path": "hardware/bes/bluetooth/libbt-vendor/src/Android.mk"
+        },
+        {
+          "status": "M",
+          "path": "hardware/bes/wireless/wlan/bes2600/wpa_supplicant_8_lib/Android.mk"
+        },
+        {
+          "status": "M",
+          "path": "hardware/interfaces/bluetooth/1.0/default/vendor_interface.cc"
+        },
+        {
+          "status": "M",
+          "path": "hardware/interfaces/wifi/1.6/default/wifi_legacy_hal.cpp"
+        }
+      ],
+      "provenance": [],
+      "module": "hal-connectivity",
+      "title": "BES2600 Wi-Fi and Bluetooth Android interfaces"
+    },
+    {
+      "file": "final12/0011-hal-media.patch",
+      "sha256": "41aafd828167558a103466ffe38061a9a24b2fb3aab52837278017cb5e585b23",
+      "paths": [
+        {
+          "status": "M",
+          "path": "hardware/rockchip/audio/tinyalsa_hal/alsa_route.c"
+        },
+        {
+          "status": "M",
+          "path": "hardware/rockchip/audio/tinyalsa_hal/audio_hw.c"
+        },
+        {
+          "status": "M",
+          "path": "hardware/rockchip/camera/etc/camera/camera3_profiles_rk3562.xml"
+        },
+        {
+          "status": "M",
+          "path": "hardware/rockchip/camera/psl/rkisp2/RKISP2ControlUnit.cpp"
+        },
+        {
+          "status": "M",
+          "path": "hardware/rockchip/optee/init.tee-supplicant.rc"
+        }
+      ],
+      "provenance": [],
+      "module": "hal-media",
+      "title": "Rockchip audio, camera and TEE service integration"
+    },
+    {
+      "file": "final12/0012-framework-storage-adb.patch",
+      "sha256": "a813738322e08d704360a69a7d6e9d93d1f383e7f9555c72147e947a2da209f9",
+      "paths": [
+        {
+          "status": "M",
+          "path": "frameworks/av/services/mediacodec/seccomp_policy/mediacodec-arm.policy"
+        },
+        {
+          "status": "M",
+          "path": "frameworks/av/services/mediacodec/seccomp_policy/mediacodec-arm64.policy"
+        },
+        {
+          "status": "M",
+          "path": "frameworks/base/services/core/java/com/android/server/PersistentDataBlockService.java"
+        },
+        {
+          "status": "M",
+          "path": "frameworks/base/services/core/java/com/android/server/wm/ActivityTaskManagerService.java"
+        },
+        {
+          "status": "M",
+          "path": "packages/modules/adb/daemon/usb_ffs.cpp"
+        },
+        {
+          "status": "M",
+          "path": "system/core/fs_mgr/fs_mgr_slotselect.cpp"
+        },
+        {
+          "status": "M",
+          "path": "vendor/rockchip/hardware/interfaces/rockit/hw/hidl/services/seccomp_policy/rockit.vendor.base-arm.policy"
+        }
+      ],
+      "provenance": [],
+      "module": "framework-storage-adb",
+      "title": "Framework, storage, seccomp and USB ADB"
+    },
+    {
+      "file": "final12/0013-settings-camera.patch",
+      "sha256": "86a6d2895852eebe9fdf4fc74e62dda68f4fa9f140919646c97fe43e48aee17b",
+      "paths": [
+        {
+          "status": "M",
+          "path": "packages/apps/Camera2/src/com/android/camera/CameraActivity.java"
+        },
+        {
+          "status": "M",
+          "path": "packages/apps/Settings/res/values-zh-rCN/strings.xml"
+        },
+        {
+          "status": "M",
+          "path": "packages/apps/Settings/res/values/strings.xml"
+        },
+        {
+          "status": "M",
+          "path": "packages/apps/Settings/res/xml/process_stats_summary.xml"
+        },
+        {
+          "status": "M",
+          "path": "packages/apps/Settings/src/com/android/settings/applications/ProcessStatsBase.java"
+        },
+        {
+          "status": "M",
+          "path": "packages/apps/Settings/src/com/android/settings/applications/ProcessStatsSummary.java"
+        },
+        {
+          "status": "M",
+          "path": "packages/apps/Settings/src/com/android/settings/development/OemUnlockPreferenceController.java"
+        }
+      ],
+      "provenance": [],
+      "module": "settings-camera",
+      "title": "Settings and Camera2 application fixes"
+    }
+  ],
+  "supplement_patches": [
+    {
+      "file": "supplement/0001-touch-led-rga.patch",
+      "sha256": "d01d649885fb8af078e8d6d2c41665d471ee5867dfd3a44d5d6b5f65de273771",
+      "paths": [
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/input/touchscreen/x7_sitronix_ts_main.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/leds/Kconfig"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/leds/Makefile"
+        },
+        {
+          "status": "A",
+          "path": "kernel-5.10/drivers/leds/leds-x7pro-scan.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/drivers/video/rockchip/rga3/rga_mm.c"
+        },
+        {
+          "status": "M",
+          "path": "kernel-5.10/kernel/configs/x7pro.config"
+        }
+      ],
+      "provenance": [
+        "47e23b6e25d860c17d9fc90566ba15cc5716b489",
+        "Keep only touch polling, scan LEDs, RGA DMA and their LED config flags; exclude namespace/cgroup additions and the legacy stock camera ioctl."
+      ]
+    },
+    {
+      "file": "supplement/0002-camera-pipeline-flash.patch",
+      "sha256": "597ff6f32f9d452ae4762e4c2850fcc55be4d8c5390b5a9fb7947b95efc49265",
+      "paths": [
+        {
+          "status": "M",
+          "path": "hardware/rockchip/camera/common/FlashLight.cpp"
+        },
+        {
+          "status": "M",
+          "path": "hardware/rockchip/camera/common/platformdata/PlatformData.cpp"
+        },
+        {
+          "status": "M",
+          "path": "hardware/rockchip/camera/etc/camera/camera3_profiles_rk3562.xml"
+        },
+        {
+          "status": "M",
+          "path": "hardware/rockchip/camera/psl/rkisp2/RKISP2CameraHw.cpp"
+        },
+        {
+          "status": "M",
+          "path": "hardware/rockchip/camera/psl/rkisp2/RKISP2ControlUnit.cpp"
+        },
+        {
+          "status": "M",
+          "path": "hardware/rockchip/camera/psl/rkisp2/RKISP2ControlUnit.h"
+        },
+        {
+          "status": "M",
+          "path": "hardware/rockchip/camera/psl/rkisp2/workers/RKISP2PostProcessPipeline.cpp"
+        }
+      ],
+      "provenance": [
+        "ba963249122d9a946c5d4e49f21da5f3f28342b3"
+      ]
+    },
+    {
+      "file": "supplement/0003-python3-fileslist.patch",
+      "sha256": "5842afb871faba8b58deeb25056375f5a33c6c3f0609770c03317dbd901661d3",
+      "paths": [
+        {
+          "status": "M",
+          "path": "build/make/tools/fileslist_util.py"
+        }
+      ],
+      "provenance": [
+        "15a1742197edec269449cad454eba909b467d3fc"
+      ]
+    },
+    {
+      "file": "supplement/0004-settings-realtime-memory.patch",
+      "sha256": "68131b4d8aec81c6f567e3edd962a24a85fec889f36f1146118392ca18625e6b",
+      "paths": [
+        {
+          "status": "M",
+          "path": "packages/apps/Settings/res/values-zh-rCN/strings.xml"
+        },
+        {
+          "status": "M",
+          "path": "packages/apps/Settings/res/values/strings.xml"
+        },
+        {
+          "status": "M",
+          "path": "packages/apps/Settings/src/com/android/settings/development/MemoryUsagePreferenceController.java"
+        },
+        {
+          "status": "M",
+          "path": "packages/apps/Settings/tests/robotests/src/com/android/settings/development/MemoryUsagePreferenceControllerTest.java"
+        }
+      ],
+      "provenance": [
+        "81bef3ff90bddc1b597ce5c0b20e55dda352af4a"
+      ]
+    },
+    {
+      "file": "supplement/0005-display-face-down-gesture.patch",
+      "sha256": "8881675782f36c4afce3b72bbc06b97f7b182d5551129d449323a7210e8c6db6",
+      "paths": [
+        {
+          "status": "A",
+          "path": "device/rockchip/rk3562/rk3562_x7pro_go/overlay/frameworks/base/core/res/res/values/config.xml"
+        }
+      ],
+      "provenance": [
+        "2f8600284e4f869435f1b3689fb79ab9f55a8aee",
+        "Extract only the display power bool; omit ModeBridge listener permission."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+0001-host-build.patch
+0002-product.patch
+0003-rockchip-common.patch
+0004-kernel-stable-abi.patch
+0005-kernel-board.patch
+0006-kernel-display-input.patch
+0007-kernel-camera.patch
+0008-kernel-audio.patch
+0009-kernel-usb-radio-power.patch
+0010-hal-connectivity.patch
+0011-hal-media.patch
+0012-framework-storage-adb.patch
+0013-settings-camera.patch

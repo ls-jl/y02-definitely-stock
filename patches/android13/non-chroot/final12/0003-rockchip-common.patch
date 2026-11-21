@@ -1,0 +1,121 @@
+diff --git a/device/rockchip/common/build/rockchip/RebuildParameter.mk b/device/rockchip/common/build/rockchip/RebuildParameter.mk
+index 36533b6f6ae13d2505ceb4a27528921589ceede8..ca2dbfc75b1ce4cf4b4198e64f933b810f1408e3 100644
+--- a/device/rockchip/common/build/rockchip/RebuildParameter.mk
++++ b/device/rockchip/common/build/rockchip/RebuildParameter.mk
+@@ -55,6 +55,8 @@ ROCKCHIP_PARAMETER_TOOLS := $(SOONG_HOST_OUT_EXECUTABLES)/parameter_tools
+ 
+ $(rebuild_parameter) : $(PRODUCT_PARAMETER_TEMPLATE) $(ROCKCHIP_PARAMETER_TOOLS)
+ 	@echo "Building parameter.txt $@."
++	$(if $(filter true,$(BOARD_USE_RAW_PARAMETER_TEMPLATE)), \
++	cp -f $(PRODUCT_PARAMETER_TEMPLATE) $(rebuild_parameter), \
+ 	$(ROCKCHIP_PARAMETER_TOOLS) --input $(PRODUCT_PARAMETER_TEMPLATE) \
+ 	--start-offset 8192 \
+ 	--firmware-version $(BOARD_PLATFORM_VERSION) \
+@@ -62,7 +64,7 @@ $(rebuild_parameter) : $(PRODUCT_PARAMETER_TEMPLATE) $(ROCKCHIP_PARAMETER_TOOLS)
+ 	--manufacturer "$(PRODUCT_MANUFACTURER)" \
+ 	--machine $(PRODUCT_DEVICE) \
+ 	--partition-list $(partition_list) \
+-	--output $(rebuild_parameter)
++	--output $(rebuild_parameter))
+ 
+ INSTALLED_RK_PARAMETER := $(PRODUCT_OUT)/$(notdir $(rebuild_parameter))
+ $(INSTALLED_RK_PARAMETER) : $(rebuild_parameter)
+diff --git a/device/rockchip/common/build/rockchip/build.sh b/device/rockchip/common/build/rockchip/build.sh
+index 4118f5c9a89b58aba15bc4c650cfe5afa9ce9017..04d97f962d5383ab74e594999855a95bfb8995e5 100755
+--- a/device/rockchip/common/build/rockchip/build.sh
++++ b/device/rockchip/common/build/rockchip/build.sh
+@@ -146,6 +146,9 @@ else
+     ADDON_ARGS="CC=clang LD=ld.lld"
+ fi
+ fi
++if [ "$TARGET_PRODUCT" = "rk3562_x7pro_go" ] ; then
++    ADDON_ARGS="$ADDON_ARGS LOCALVERSION="
++fi
+ # build kernel
+ if [ "$BUILD_KERNEL" = true ] ; then
+ echo "Start build kernel"
+diff --git a/device/rockchip/common/modules/recovery.mk b/device/rockchip/common/modules/recovery.mk
+index def34198e08b08ee9c258323c393f6482fb9e040..002564fb33eadc51e6f47257c7d9599568d358bc 100644
+--- a/device/rockchip/common/modules/recovery.mk
++++ b/device/rockchip/common/modules/recovery.mk
+@@ -95,6 +95,21 @@ PRODUCT_PACKAGES += \
+   bootctrl.rk30board \
+   bootctrl.rk30board.recovery
+ 
++# X7 Pro embeds DTB in its stock-format FIT boot image, keeps the stock
++# bootloader/trust slots unchanged, and has no standalone DTBO/VBMeta entries.
++ifeq ($(strip $(TARGET_PRODUCT)),rk3562_x7pro_go)
++AB_OTA_PARTITIONS := \
++    boot \
++    system \
++    system_dlkm \
++    system_ext \
++    vendor \
++    vendor_dlkm \
++    odm \
++    odm_dlkm \
++    product
++endif
++
+ PRODUCT_PACKAGES_DEBUG += \
+     bootctl
+ 
+diff --git a/device/rockchip/common/modules/rockchip_apps.mk b/device/rockchip/common/modules/rockchip_apps.mk
+index 1f27492c86bbbd65ae0a0da89b4f40f0a0122fee..274a4221dc5f26317ce57ff603d1b75a410f5284 100644
+--- a/device/rockchip/common/modules/rockchip_apps.mk
++++ b/device/rockchip/common/modules/rockchip_apps.mk
+@@ -14,10 +14,14 @@
+ # limitations under the License.
+ #
+ PRODUCT_PACKAGES += \
+-    RKDeviceTest \
+     Lightning \
+     LiveWallpapersPicker \
+     RkVideoPlayer \
+     RkExplorer \
+-    StressTest \
+     RKUpdateService
++
++ifneq ($(ROCKCHIP_EXCLUDE_FACTORY_APPS),true)
++PRODUCT_PACKAGES += \
++    RKDeviceTest \
++    StressTest
++endif
+diff --git a/device/rockchip/common/rootdir/init.insmod.cfg b/device/rockchip/common/rootdir/init.insmod.cfg
+index 06e68e9b6735a0bca30aa341c8fc99ba9aef9d95..6445a8bd33940870cfa04790e228fa084cda2276 100644
+--- a/device/rockchip/common/rootdir/init.insmod.cfg
++++ b/device/rockchip/common/rootdir/init.insmod.cfg
+@@ -9,6 +9,12 @@ insmod /vendor/lib/modules/pvrsrvkm.ko
+ insmod /vendor/lib/modules/rknpu.ko
+ insmod /vendor/lib/modules/rknpu-clang.ko
+ insmod /vendor/lib/modules/r8168.ko
++insmod /vendor/lib/modules/snd-soc-aw883xx-v16.ko
++# X7 Pro stock vendor modules are intentionally not auto-loaded. Runtime testing
++# proved that their private 5.10.160 structural ABI is incompatible with this
++# kernel even though vermagic and exported-symbol checks pass: fake_keys.ko
++# faults in load_module()/rb_erase. Port or rebuild each driver from source
++# before re-enabling it; do not trade a booting Android system for binary reuse.
+ #insmod /system/lib/modules/rtk_btusb.ko
+ #insmod /rk30xxnand_ko.ko
+ #insmod /drmboot.ko
+diff --git a/device/rockchip/common/rootdir/init.rk30board.usb.rc b/device/rockchip/common/rootdir/init.rk30board.usb.rc
+index 5d2325b986e06ad39a36512930e0e76d02c05ad3..c8232f4c60a8e828587a9dd465b36c7346ba2d4f 100644
+--- a/device/rockchip/common/rootdir/init.rk30board.usb.rc
++++ b/device/rockchip/common/rootdir/init.rk30board.usb.rc
+@@ -125,6 +125,7 @@ on early-boot
+ 
+ on boot
+     write /config/usb_gadget/g1/bcdDevice 0x0310
++    setprop sys.usb.config adb
+ 
+ on property:sys.usb.config=none && property:sys.usb.configfs=1
+     write /config/usb_gadget/g1/os_desc/use 0
+diff --git a/device/rockchip/common/rootdir/ueventd.rockchip.rc b/device/rockchip/common/rootdir/ueventd.rockchip.rc
+index 74cfc83fcc4f33f93b96eba45e64c5001b0aa9e5..f67cec5bdcff00b86afe67e4fe8f7bbb9253a543 100755
+--- a/device/rockchip/common/rootdir/ueventd.rockchip.rc
++++ b/device/rockchip/common/rootdir/ueventd.rockchip.rc
+@@ -202,3 +202,4 @@
+ /dev/dma_heap/cma			0444   system     system
+ /dev/dma_heap/system-dma32		0444   system     system
+ /dev/dma_heap/system-uncached-dma32	0444   system     system
++/dev/bes2600             0660   bluetooth  wifi
