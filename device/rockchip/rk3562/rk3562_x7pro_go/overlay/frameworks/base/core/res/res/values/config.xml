@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The pen is commonly held with the phone-style Z axis facing down. -->
+    <bool name="config_flipToScreenOffEnabled">false</bool>
+</resources>

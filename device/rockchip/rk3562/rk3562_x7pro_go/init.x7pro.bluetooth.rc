@@ -1,0 +1,27 @@
+# BES2600 Bluetooth and calibration paths used by the stock X7 Pro firmware.
+
+on post-fs
+    mkdir /lib 0755 root root
+    symlink /vendor/firmware /lib/firmware
+
+on post-fs-data
+    mkdir /data/cfg 0770 wifi wifi
+    copy /vendor/etc/firmware/bes2600_factory.txt /data/cfg/bes2600_factory.txt
+    chown wifi wifi /data/cfg/bes2600_factory.txt
+    chmod 0660 /data/cfg/bes2600_factory.txt
+
+on boot
+    # Bluetooth can be restored while Wi-Fi is disabled.  Load the shared
+    # combo driver here so /dev/bes2600 exists before the Bluetooth HAL starts.
+    insmod /vendor/lib/modules/bes2600.ko
+    chown bluetooth net_bt /dev/ttyS1
+    chmod 0660 /dev/ttyS1
+    # Bluetooth owns the combo control node; the Wi-Fi group also needs it to
+    # recreate wlan0 after a framework recovery leaves the module loaded.
+    chown bluetooth wifi /dev/bes2600
+    chmod 0660 /dev/bes2600
+
+# The Wi-Fi HAL requests this only after a BES2600 firmware startup timeout and
+# full combo-chip recovery. Restart HCI so its pre-reset state is not reused.
+on property:vendor.wifi.x7pro.bt_hal_reset=1
+    restart vendor.bluetooth-1-0

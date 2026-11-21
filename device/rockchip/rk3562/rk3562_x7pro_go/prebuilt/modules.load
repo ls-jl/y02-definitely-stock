@@ -1,0 +1,4 @@
+# Stock binary modules are retained only in the device dump. Loading both
+# fake_keys.ko and dwc3.ko reproduced a structural-ABI Oops in rb_erase(), so
+# no captured module may be enabled in this Android kernel.
+snd-soc-aw883xx-v16.ko

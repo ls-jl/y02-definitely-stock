@@ -1,0 +1,8 @@
+# X7 Pro physical partitions used by the Rockchip recovery binary.
+# Android logical partitions are mounted by first_stage_ramdisk/fstab.rk30board.
+#<src>                              <mnt_point> <type> <mnt_flags>                                      <fs_mgr_flags>
+/dev/block/by-name/cache            /cache      ext4   noatime,nodiratime,nosuid,nodev,discard           wait,check,formattable
+/dev/block/by-name/metadata         /metadata   ext4   nodev,noatime,nosuid,discard,sync                 wait,check,formattable
+/dev/block/by-name/userdata         /data       f2fs   noatime,nosuid,nodev,discard,reserve_root=32768   wait,check,formattable
+/dev/block/by-name/misc             /misc       emmc   defaults                                         defaults
+/dev/block/by-name/super            /super      emmc   defaults                                         defaults

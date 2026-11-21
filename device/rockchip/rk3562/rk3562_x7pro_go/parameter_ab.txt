@@ -1,0 +1,13 @@
+FIRMWARE_VER: 13.0
+MACHINE_MODEL: X7 Pro
+MACHINE_ID: 007
+MANUFACTURER: Youdao
+MAGIC: 0x5041524B
+ATAG: 0x00200800
+MACHINE: rk3562_x7pro_go
+CHECK_MASK: 0x80
+PWR_HLD: 0,0,A,0,1
+TYPE: GPT
+# Preserve uboot/trust/misc. SPL gzip uses an overlapping 2 MiB scratch area,
+# so boot A/B must be 64 MiB and carry the uncompressed Android Image.
+CMDLINE:mtdparts=rk29xxnand:0x00002000@0x00004000(uboot_a),0x00002000@0x00006000(uboot_b),0x00002000@0x00008000(trust_a),0x00002000@0x0000a000(trust_b),0x00002000@0x0000c000(misc),0x00020000@0x0000e000(boot_a),0x00020000@0x0002e000(boot_b),0x00020000@0x0004e000(recovery),0x00c00000@0x0006e000(super),0x00020000@0x00c6e000(cache),0x00008000@0x00c8e000(metadata),-@0x00c96000(userdata:grow)

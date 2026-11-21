@@ -1,0 +1,1 @@
+allow hal_wifi_default serial_device:chr_file rw_file_perms;
