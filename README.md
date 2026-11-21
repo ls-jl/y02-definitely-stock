@@ -1,6 +1,8 @@
-# X7 Pro Android 13 Go：非 chroot 移植代码
+# y02-definitely-stock
 
-有道 X7 Pro（RK3562）的 Android 13 Go 移植补丁与配套源码工具。
+Android 只是借住，原厂系统你别多想。
+
+有道 X7 Pro（Y02 / RK3562）的 Android 13 Go 移植补丁与配套源码工具。
 以原始 Rockchip SDK 为基线，包含 final12 的完整改动，以及剥离容器依赖的后续独立修复。
 
 ## 仓库内容

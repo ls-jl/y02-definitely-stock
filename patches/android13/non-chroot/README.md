@@ -68,7 +68,7 @@ python3 -m unittest discover -s tools/porting/tests -v
 要在另一个**干净、HEAD 为上述原始 SDK 提交**的工作目录中应用完整代码集：
 
 ```bash
-PATCH_DIR=/absolute/path/to/x7pro-android13-non-chroot/patches/android13/non-chroot
+PATCH_DIR=/absolute/path/to/y02-definitely-stock/patches/android13/non-chroot
 while IFS= read -r patch; do
     git apply --index --binary "$PATCH_DIR/$patch" || break
 done < "$PATCH_DIR/series"
